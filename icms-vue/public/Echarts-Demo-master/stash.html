@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>应急物流大数据服务平台</title>
+    <link rel="stylesheet" href="css/index.css" />
+  </head>
+  <body>
+    <!-- 头部 -->
+    <header>
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px;">
+        <button class="back-button" 
+          style="background-color: transparent; color: white; border: none; padding: 12px 6px; border-radius: 50px; cursor: pointer; box-shadow: 0 0 10px 3px rgb(71, 72, 102);"
+          onclick="window.location.href='/'">
+          返  回
+        </button>
+        <h1 style="margin: 0; flex-grow: 1; text-align: center;">应急物资配送系统数据可视化</h1>
+      </div>
+      <div class="show-time"></div>
+      <script>
+        var t = null;
+        t = setTimeout(time, 1000); //开始运行
+        function time() {
+          clearTimeout(t); //清除定时器
+          dt = new Date();
+          var y = dt.getFullYear();
+          var mt = dt.getMonth() + 1;
+          var day = dt.getDate();
+          var h = dt.getHours(); //获取时
+          var m = dt.getMinutes(); //获取分
+          var s = dt.getSeconds(); //获取秒
+          document.querySelector(".show-time").innerHTML =
+            "当前时间：" +
+            y +
+            "年" +
+            mt +
+            "月" +
+            day +
+            "日-" +
+            h +
+            "时" +
+            m +
+            "分" +
+            s +
+            "秒";
+          t = setTimeout(time, 1000); //设定定时器，循环运行
+        }
+      </script>
+    </header>
+
+    <!-- 页面主体 -->
+    <section class="mainbox">
+      <!-- 左侧盒子 -->
+      <div class="column">
+        <div class="panel bar">
+          <h2>各类物资配送量统计</h2>
+          <!-- 图表放置盒子 -->
+          <div class="chart"></div>
+          <!-- 伪元素绘制盒子下边角 -->
+          <div class="panel-footer"></div>
+        </div>
+        <div class="panel line">
+          <h2>配送时间趋势分析
+            <a class="a-active" href="javascript:;">2020</a>
+            <a href="javascript:;">2021</a>
+          </h2>
+          <div class="chart"></div>
+          <div class="panel-footer"></div>
+        </div>
+        <div class="panel pie">
+          <h2>物资类型分布</h2>
+          <div class="chart"></div>
+          <div class="panel-footer"></div>
+        </div>
+      </div>
+      <!-- 中间盒子 -->
+      <div class="column">
+        <!-- 头部 no模块 -->
+        <div class="no">
+          <div class="no-hd">
+            <ul>
+              <li>15678</li>
+              <li>89</li>
+            </ul>
+          </div>
+          <div class="no-bd">
+            <ul>
+              <li>总配送量</li>
+              <li>在途车辆</li>
+            </ul>
+          </div>
+        </div>
+        <!-- map模块 -->
+        <div class="map">
+          <div class="map1"></div>
+          <div class="map2"></div>
+          <div class="map3"></div>
+          <div class="chart"></div>
+        </div>
+      </div>
+      <!-- 右侧盒子 -->
+      <div class="column">
+        <div class="panel bar2">
+          <h2>区域配送量对比</h2>
+          <div class="chart"></div>
+          <div class="panel-footer"></div>
+        </div>
+        <div class="panel line2">
+          <h2>配送效率趋势</h2>
+          <div class="chart"></div>
+          <div class="panel-footer"></div>
+        </div>
+        <div class="panel pie2">
+          <h2>物资储备分布</h2>
+          <div class="chart"></div>
+          <div class="panel-footer"></div>
+        </div>
+      </div>
+    </section>
+
+    <script src="js/flexible.js"></script>
+    <script src="js/echarts.min.js"></script>
+    <script src="js/jquery.js"></script>
+    <!-- 引入china.js 完成地图模块 -->
+    <script src="js/china.js"></script>
+    <script>
+      // 初始化图表
+      function initCharts() {
+        // 柱状图 - 各类物资配送量
+        const bar = echarts.init(document.querySelector('.bar .chart'))
+        bar.setOption({
+          title: {
+            text: '各类物资配送量统计',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: ['食品', '医疗物资', '救援装备', '生活用品', '应急设备'],
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            data: [3200, 2800, 2100, 1800, 1500],
+            type: 'bar',
+            itemStyle: {
+              color: '#188df0'
+            }
+          }]
+        })
+
+        // 折线图 - 配送时间趋势
+        const line = echarts.init(document.querySelector('.line .chart'))
+        line.setOption({
+          title: {
+            text: '配送时间趋势分析',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'axis'
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '平均配送时间(分钟)',
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            data: [45, 52, 38, 64, 58, 33, 39],
+            type: 'line',
+            smooth: true,
+            lineStyle: {
+              color: '#188df0'
+            }
+          }]
+        })
+
+        // 饼图 - 物资类型分布
+        const pie = echarts.init(document.querySelector('.pie .chart'))
+        pie.setOption({
+          title: {
+            text: '物资类型分布',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: '{a} <br/>{b}: {c} ({d}%)'
+          },
+          legend: {
+            orient: 'vertical',
+            right: 10,
+            top: 'center',
+            textStyle: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            name: '物资类型',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: false,
+              position: 'center'
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: 20,
+                fontWeight: 'bold'
+              }
+            },
+            labelLine: {
+              show: false
+            },
+            data: [
+              { value: 3200, name: '食品' },
+              { value: 2800, name: '医疗物资' },
+              { value: 2100, name: '救援装备' },
+              { value: 1800, name: '生活用品' },
+              { value: 1500, name: '应急设备' }
+            ]
+          }]
+        })
+
+        // 地图 - 配送路线分布
+        const map = echarts.init(document.querySelector('.map .chart'))
+        map.setOption({
+          title: {
+            text: '全国配送路线分布',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: '{b}<br/>配送量：{c}'
+          },
+          visualMap: {
+            min: 0,
+            max: 1000,
+            text: ['高', '低'],
+            realtime: false,
+            calculable: true,
+            inRange: {
+              color: ['#188df0', '#83bff6']
+            },
+            textStyle: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            type: 'map',
+            map: 'china',
+            roam: true,
+            emphasis: {
+              label: {
+                show: true
+              }
+            },
+            data: [
+              { name: '北京', value: 800 },
+              { name: '上海', value: 900 },
+              { name: '广州', value: 1000 },
+              { name: '武汉', value: 750 },
+              { name: '成都', value: 600 },
+              { name: '西安', value: 500 },
+              { name: '重庆', value: 700 }
+            ]
+          }]
+        })
+
+        // 柱状图2 - 区域配送量对比
+        const bar2 = echarts.init(document.querySelector('.bar2 .chart'))
+        bar2.setOption({
+          title: {
+            text: '区域配送量对比',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: ['华北', '华东', '华南', '华中', '西南', '西北', '东北'],
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            data: [3200, 2800, 2100, 1800, 1500, 1200, 900],
+            type: 'bar',
+            itemStyle: {
+              color: '#188df0'
+            }
+          }]
+        })
+
+        // 折线图2 - 配送效率趋势
+        const line2 = echarts.init(document.querySelector('.line2 .chart'))
+        line2.setOption({
+          title: {
+            text: '配送效率趋势',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'axis'
+          },
+          grid: {
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: ['1月', '2月', '3月', '4月', '5月', '6月', '7月'],
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '效率指数',
+            axisLabel: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            data: [85, 92, 88, 95, 90, 93, 96],
+            type: 'line',
+            smooth: true,
+            lineStyle: {
+              color: '#188df0'
+            }
+          }]
+        })
+
+        // 饼图2 - 物资储备分布
+        const pie2 = echarts.init(document.querySelector('.pie2 .chart'))
+        pie2.setOption({
+          title: {
+            text: '物资储备分布',
+            textStyle: {
+              color: '#fff',
+              fontSize: 14
+            }
+          },
+          tooltip: {
+            trigger: 'item',
+            formatter: '{a} <br/>{b}: {c} ({d}%)'
+          },
+          legend: {
+            orient: 'vertical',
+            right: 10,
+            top: 'center',
+            textStyle: {
+              color: '#fff'
+            }
+          },
+          series: [{
+            name: '储备分布',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderColor: '#fff',
+              borderWidth: 2
+            },
+            label: {
+              show: false,
+              position: 'center'
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: 20,
+                fontWeight: 'bold'
+              }
+            },
+            labelLine: {
+              show: false
+            },
+            data: [
+              { value: 4000, name: '中央储备' },
+              { value: 3000, name: '区域储备' },
+              { value: 2000, name: '地方储备' },
+              { value: 1000, name: '临时储备' }
+            ]
+          }]
+        })
+      }
+
+      // 页面加载完成后初始化图表
+      window.addEventListener('load', initCharts)
+      
+      // 监听窗口大小变化，调整图表大小
+      window.addEventListener('resize', () => {
+        const charts = document.querySelectorAll('.chart')
+        charts.forEach(chart => {
+          echarts.getInstanceByDom(chart)?.resize()
+        })
+      })
+    </script>
+  </body>
+</html>
