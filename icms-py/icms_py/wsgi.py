@@ -1,5 +1,5 @@
 """
-WSGI config for icms-py project.
+WSGI config for icms_py project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'icms-py.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'icms_py.settings')
 
 application = get_wsgi_application()
