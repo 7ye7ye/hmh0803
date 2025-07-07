@@ -4,9 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../requirements.txt" beforeDir="false" />
+    <list default="true" id="b64973fa-253c-4a94-b297-828d449361a3" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/icms-py/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/icms-py/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,26 +14,24 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="ProjectColorInfo">{
-  &quot;customColor&quot;: &quot;&quot;,
-  &quot;associatedIndex&quot;: 8
-}</component>
-  <component name="ProjectId" id="2zXJeJhOnNhQmZKj8a28VIYFada" />
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 2
+}]]></component>
+  <component name="ProjectId" id="2zXjDEo7XKdXf35CtPwEblsDYhW" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Django 服务器.icms-py.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "git-widget-placeholder": "zsq",
-    "last_opened_file_path": "D:/yeyeye/code/小学期/project/icms-py",
+    "last_opened_file_path": "D:/yeyeye/code/小学期/project",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -43,14 +41,13 @@
   }
 }]]></component>
   <component name="RunManager">
-    <configuration name="icms-py" type="Python.DjangoServer" factoryName="Django server">
-      <module name="icms-py" />
+    <configuration name="project" type="Python.DjangoServer" factoryName="Django server">
+      <module name="project" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
         <env name="PYTHONUNBUFFERED" value="1" />
-        <env name="DJANGO_SETTINGS_MODULE" value="icms_py.settings" />
       </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="" />
@@ -79,13 +76,12 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">
-      <changelist id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
-      <created>1751871578154</created>
+      <changelist id="b64973fa-253c-4a94-b297-828d449361a3" name="更改" comment="" />
+      <created>1751884191249</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1751871578154</updated>
-      <workItem from="1751871579342" duration="1753000" />
-      <workItem from="1751876349574" duration="4915000" />
+      <updated>1751884191249</updated>
+      <workItem from="1751884192404" duration="2466000" />
     </task>
     <servers />
   </component>
