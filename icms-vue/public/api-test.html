@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek API 测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #response {
+            white-space: pre-wrap;
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            min-height: 100px;
+        }
+        .log {
+            font-family: monospace;
+            font-size: 14px;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .status-success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .status-error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <h1>DeepSeek API 测试工具</h1>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('direct')">直接调用</div>
+        <div class="tab" onclick="switchTab('backend')">通过后端</div>
+    </div>
+    
+    <div id="direct" class="tab-content active">
+        <div class="container">
+            <h2>直接调用 API</h2>
+            <p>此方法直接调用DeepSeek API，不经过后端。</p>
+            
+            <label for="direct-api-key">API 密钥</label>
+            <input type="text" id="direct-api-key" value="sk-884c159b03dc4f88ae4467ff13e96954" placeholder="输入API密钥">
+            
+            <label for="direct-api-url">API URL</label>
+            <input type="text" id="direct-api-url" value="https://api.deepseek.com/v1/chat/completions" placeholder="输入API URL">
+            
+            <label for="direct-question">问题 (支持中文和英文)</label>
+            <div>
+                <button onclick="useChineseQuestion()">使用中文示例</button>
+                <button onclick="useEnglishQuestion()">使用英文示例</button>
+            </div>
+            <textarea id="direct-question" placeholder="输入你的问题"></textarea>
+            
+            <button onclick="testDirectAPI()">测试 API</button>
+            
+            <div id="direct-status"></div>
+            
+            <h3>响应结果</h3>
+            <div id="direct-response">响应将显示在这里...</div>
+            
+            <h3>日志</h3>
+            <div id="direct-log" class="log"></div>
+        </div>
+    </div>
+    
+    <div id="backend" class="tab-content">
+        <div class="container">
+            <h2>通过后端调用</h2>
+            <p>此方法通过您的Java后端调用API，需要后端服务运行。</p>
+            
+            <label for="backend-url">后端 URL</label>
+            <input type="text" id="backend-url" value="http://localhost:8090/api/chat" placeholder="输入后端URL">
+            
+            <label for="backend-question">问题 (支持中文和英文)</label>
+            <div>
+                <button onclick="useChineseQuestionBackend()">使用中文示例</button>
+                <button onclick="useEnglishQuestionBackend()">使用英文示例</button>
+            </div>
+            <textarea id="backend-question" placeholder="输入你的问题"></textarea>
+            
+            <button onclick="testBackendAPI()">测试通过后端</button>
+            
+            <div id="backend-status"></div>
+            
+            <h3>响应结果</h3>
+            <div id="backend-response">响应将显示在这里...</div>
+            
+            <h3>日志</h3>
+            <div id="backend-log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // 切换标签页
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+        
+        // 示例问题
+        function useChineseQuestion() {
+            document.getElementById('direct-question').value = "北京和上海之间怎么走？请给出乘坐高铁和飞机的建议。";
+        }
+        
+        function useEnglishQuestion() {
+            document.getElementById('direct-question').value = "How to go from Beijing to Shanghai? Please provide suggestions for taking high-speed rail and airplane.";
+        }
+        
+        function useChineseQuestionBackend() {
+            document.getElementById('backend-question').value = "北京和上海之间怎么走？请给出乘坐高铁和飞机的建议。";
+        }
+        
+        function useEnglishQuestionBackend() {
+            document.getElementById('backend-question').value = "How to go from Beijing to Shanghai? Please provide suggestions for taking high-speed rail and airplane.";
+        }
+        
+        // 添加日志
+        function log(containerId, message) {
+            const logContainer = document.getElementById(containerId);
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.innerHTML += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        // 设置状态
+        function setStatus(containerId, message, isSuccess) {
+            const statusContainer = document.getElementById(containerId);
+            statusContainer.innerHTML = message;
+            statusContainer.className = isSuccess ? "status status-success" : "status status-error";
+        }
+        
+        // 直接测试API
+        async function testDirectAPI() {
+            const apiKey = document.getElementById('direct-api-key').value.trim();
+            const apiUrl = document.getElementById('direct-api-url').value.trim();
+            const question = document.getElementById('direct-question').value.trim();
+            const responseContainer = document.getElementById('direct-response');
+            const logContainer = 'direct-log';
+            
+            if (!apiKey || !apiUrl || !question) {
+                setStatus('direct-status', '错误: 请填写所有字段', false);
+                return;
+            }
+            
+            responseContainer.textContent = "请求中...";
+            log(logContainer, `开始请求: ${apiUrl}`);
+            log(logContainer, `问题: "${question}"`);
+            
+            try {
+                const startTime = Date.now();
+                
+                // 检查是否包含中文
+                if (/[\u4e00-\u9fa5]/.test(question)) {
+                    log(logContainer, "检测到中文内容，确保编码正确");
+                }
+                
+                // 构建请求
+                const data = {
+                    model: "deepseek-chat",
+                    messages: [
+                        {
+                            role: "system",
+                            content: "你是一个由DeepSeek提供的AI助手。请提供准确、有用的信息，并直接回答用户的问题。"
+                        },
+                        {
+                            role: "user",
+                            content: question
+                        }
+                    ],
+                    temperature: 0.7,
+                    max_tokens: 2000
+                };
+                
+                log(logContainer, `请求体: ${JSON.stringify(data, null, 2)}`);
+                
+                // 发送请求
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const endTime = Date.now();
+                log(logContainer, `响应状态码: ${response.status}`);
+                log(logContainer, `响应时间: ${endTime - startTime}ms`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(logContainer, `错误响应: ${errorText}`);
+                    setStatus('direct-status', `错误: ${response.status} ${response.statusText}`, false);
+                    responseContainer.textContent = `API错误 (${response.status}): ${errorText}`;
+                    return;
+                }
+                
+                const result = await response.json();
+                log(logContainer, `收到响应: ${JSON.stringify(result, null, 2).substring(0, 500)}...`);
+                
+                // 提取并显示回复内容
+                if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+                    const content = result.choices[0].message.content;
+                    responseContainer.textContent = content;
+                    setStatus('direct-status', '成功!', true);
+                } else {
+                    responseContainer.textContent = "无法提取响应内容，请查看日志";
+                    setStatus('direct-status', '无法提取响应内容', false);
+                }
+            } catch (error) {
+                log(logContainer, `错误: ${error.message}`);
+                setStatus('direct-status', `错误: ${error.message}`, false);
+                responseContainer.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 通过后端测试API
+        async function testBackendAPI() {
+            const backendUrl = document.getElementById('backend-url').value.trim();
+            const question = document.getElementById('backend-question').value.trim();
+            const responseContainer = document.getElementById('backend-response');
+            const logContainer = 'backend-log';
+            
+            if (!backendUrl || !question) {
+                setStatus('backend-status', '错误: 请填写所有字段', false);
+                return;
+            }
+            
+            responseContainer.textContent = "请求中...";
+            log(logContainer, `开始请求: ${backendUrl}`);
+            log(logContainer, `问题: "${question}"`);
+            
+            try {
+                const startTime = Date.now();
+                
+                // 检查是否包含中文
+                if (/[\u4e00-\u9fa5]/.test(question)) {
+                    log(logContainer, "检测到中文内容，确保编码正确");
+                }
+                
+                // 构建请求
+                const data = {
+                    messages: [
+                        {
+                            role: "system",
+                            content: "你是一个由DeepSeek提供的AI助手。请提供准确、有用的信息，并直接回答用户的问题。"
+                        },
+                        {
+                            role: "user",
+                            content: question
+                        }
+                    ],
+                    stream: false,
+                    temperature: 0.7,
+                    maxTokens: 2000,
+                    model: "deepseek-chat"
+                };
+                
+                log(logContainer, `请求体: ${JSON.stringify(data, null, 2)}`);
+                
+                // 发送请求
+                const response = await fetch(backendUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const endTime = Date.now();
+                log(logContainer, `响应状态码: ${response.status}`);
+                log(logContainer, `响应时间: ${endTime - startTime}ms`);
+                
+                if (!response.ok) {
+                    let errorText;
+                    try {
+                        const errorJson = await response.json();
+                        errorText = JSON.stringify(errorJson);
+                    } catch {
+                        errorText = await response.text();
+                    }
+                    
+                    log(logContainer, `错误响应: ${errorText}`);
+                    setStatus('backend-status', `错误: ${response.status} ${response.statusText}`, false);
+                    responseContainer.textContent = `API错误 (${response.status}): ${errorText}`;
+                    return;
+                }
+                
+                const result = await response.json();
+                log(logContainer, `收到响应: ${JSON.stringify(result, null, 2).substring(0, 500)}...`);
+                
+                // 提取并显示回复内容
+                if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+                    const content = result.choices[0].message.content;
+                    responseContainer.textContent = content;
+                    setStatus('backend-status', '成功!', true);
+                } else {
+                    responseContainer.textContent = "无法提取响应内容，请查看日志";
+                    setStatus('backend-status', '无法提取响应内容', false);
+                }
+            } catch (error) {
+                log(logContainer, `错误: ${error.message}`);
+                setStatus('backend-status', `错误: ${error.message}`, false);
+                responseContainer.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            useChineseQuestion();
+            useChineseQuestionBackend();
+        });
+    </script>
+</body>
+</html> 
