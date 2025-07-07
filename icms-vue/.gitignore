@@ -28,3 +28,8 @@ coverage
 *.sw?
 
 *.tsbuildinfo
+
+# Python 虚拟环境和算法源码
+venv/
+venv310/
+Yolov5_DeepSort_Pytorch/

@@ -1,0 +1,43 @@
+# requirements.txt
+
+# 基础环境
+python-dotenv
+
+# 深度学习与计算机视觉
+torch>=1.13.0
+torchvision
+torchaudio
+opencv-python
+ultralytics           # YOLOv8
+shapely
+
+# 多目标追踪
+# DeepSORT/ByteTrack 需单独clone源码，但部分依赖如下
+scipy
+lap
+filterpy
+
+# ReID（多摄像头目标关联）
+torchreid
+
+# Django后端与API
+django>=4.0
+djangorestframework
+drf-yasg
+
+# 数据库
+psycopg2-binary       # PostgreSQL
+mysqlclient           # MySQL
+
+# 生产部署
+gunicorn
+
+# 其他
+requests
+PyYAML
+
+# 可选：用于开发和测试
+pytest
+pytest-django
+
+# 如需指定具体版本，可用==号指定
