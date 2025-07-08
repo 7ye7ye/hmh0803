@@ -5,13 +5,33 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/application.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/asgi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/settings.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/test_branch/lq.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/test_branch/test-branch-lq.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/urls.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/icms_py/wsgi.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/manage.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/HomeView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/HomeView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/vue.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/vue.config.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
@@ -21,27 +41,30 @@
   &quot;associatedIndex&quot;: 8
 }</component>
   <component name="ProjectId" id="2zXJeJhOnNhQmZKj8a28VIYFada" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Django 服务器.icms-py.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "zsq",
-    "last_opened_file_path": "D:/yeyeye/code/小学期/project/icms-py",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Django 服务器.icms-py.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;D:/yeyeye/code/小学期/project/icms-py&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="icms-py" type="Python.DjangoServer" factoryName="Django server">
       <module name="icms-py" />
@@ -86,6 +109,8 @@
       <updated>1751871578154</updated>
       <workItem from="1751871579342" duration="1753000" />
       <workItem from="1751876349574" duration="4915000" />
+      <workItem from="1751943606001" duration="2901000" />
+      <workItem from="1751949050880" duration="199000" />
     </task>
     <servers />
   </component>
