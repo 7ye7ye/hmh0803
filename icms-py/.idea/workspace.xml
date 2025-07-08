@@ -5,21 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/db.sqlite3" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/asgi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/settings.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/test_branch/lq.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/test_branch/test-branch-lq.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/urls.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/icms_py/wsgi.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/manage.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.example" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/HomeView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/HomeView.vue" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/vue.config.js" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/vue.config.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,6 +97,7 @@
       <workItem from="1751876349574" duration="4915000" />
       <workItem from="1751943606001" duration="2901000" />
       <workItem from="1751949050880" duration="199000" />
+      <workItem from="1751949514353" duration="12000" />
     </task>
     <servers />
   </component>
