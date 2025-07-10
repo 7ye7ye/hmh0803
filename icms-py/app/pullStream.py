@@ -1,8 +1,7 @@
 import cv2
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI,APIRouter
 from fastapi.responses import StreamingResponse
-
 # --- 配置 ---
 # 视频流源地址
 # 注意：请确保这个地址在你运行代码时是可访问的。
@@ -10,8 +9,7 @@ from fastapi.responses import StreamingResponse
 # 例如一个本地摄像头：0，或者一个RTSP流： "rtsp://..."
 VIDEO_STREAM_URL = "rtmp://120.46.210.148:1935/live/livestream"
 
-# --- FastAPI 应用实例 ---
-app = FastAPI()
+router = APIRouter(prefix="/pull", tags=["pullStream"])
 
 def process_frame_for_ai(frame):
     """
@@ -94,12 +92,7 @@ async def video_stream_generator():
         cap.release()
 
 
-@app.get("/")
-def read_root():
-    return {"message": "欢迎使用视频处理API", "stream_url": "/video_feed"}
-
-
-@app.get("/video_feed")
+@router.get("/video_feed")
 async def video_feed():
     """
     视频流传输接口。

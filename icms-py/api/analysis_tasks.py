@@ -120,7 +120,7 @@ def read_root():
     return {"message": "欢迎使用视频处理API", "stream_url": "/video_feed"}
 
 
-@app.get("/ai/start_facial_recognition/video_feed")
+@app.get("/ai/start_facial_recognition/")
 async def video_feed():
     """
     视频流传输接口。

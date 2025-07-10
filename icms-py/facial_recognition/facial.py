@@ -1,6 +1,6 @@
 import cv2
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI,APIRouter
 from fastapi.responses import StreamingResponse,JSONResponse
 from deepface import DeepFace
 
@@ -28,7 +28,7 @@ latest_recognition_data = {
 }
 
 # --- FastAPI 应用实例 ---
-app = FastAPI()
+router = APIRouter(prefix="/ai/facial", tags=["facial"])
 
 def process_frame_for_ai(frame: np.ndarray):
     """
@@ -166,7 +166,7 @@ async def video_stream_generator():
         cap.release()
 
 
-@app.get("/")
+@router.get("/")
 def read_root():
     return {
         "message": "欢迎使用视频处理API", "stream_url": "/video_feed",
@@ -175,7 +175,7 @@ def read_root():
     }
 
 
-@app.get("/video_feed")
+@router.get("/video_feed")
 async def video_feed():
     """
     视频流传输接口。
@@ -188,7 +188,7 @@ async def video_feed():
                              media_type="multipart/x-mixed-replace; boundary=frame")
 
 # --- 新增的 API 接口 ---
-@app.get("/get_latest_vector")
+@router.get("/get_latest_vector")
 async def get_latest_vector():
     """
     提供一个API端点，用于获取最近一次成功提取到的人脸特征向量。
