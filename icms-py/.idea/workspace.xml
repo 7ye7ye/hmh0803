@@ -4,7 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
+    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/app/pullStream.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/test/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -39,7 +48,7 @@
     &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;caoyue&quot;,
     &quot;last_opened_file_path&quot;: &quot;D:/yeyeye/code/小学期/project/icms-py&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
@@ -97,6 +106,9 @@
       <workItem from="1751949050880" duration="199000" />
       <workItem from="1751949514353" duration="12000" />
       <workItem from="1751957200288" duration="2613000" />
+      <workItem from="1751963539052" duration="620000" />
+      <workItem from="1752050710553" duration="650000" />
+      <workItem from="1752108331790" duration="5247000" />
     </task>
     <servers />
   </component>
