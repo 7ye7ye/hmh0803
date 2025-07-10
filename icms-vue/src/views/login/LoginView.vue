@@ -302,7 +302,7 @@ export default defineComponent({
     }
 
     // 处理登录的函数
-    const handleLogin = async () => {
+    const handleLogin = async () => {                                                                                                                                                             
       try {
         const response = await userApi.login(loginForm)
         const userData = response.data
@@ -379,12 +379,6 @@ export default defineComponent({
       bContainer.classList.toggle("is-txl")
       bContainer.classList.toggle("is-z")
 
-      // 初始化对应的播放器
-      nextTick(() => {
-        if (isRegisterForm.value) {
-        } else {
-        }
-      })
     }
 
     // 组件挂载时的处理

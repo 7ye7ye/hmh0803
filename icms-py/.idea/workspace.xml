@@ -5,21 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.development" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.development" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.production" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.production" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -126,6 +112,7 @@
       <workItem from="1752131562817" duration="1955000" />
       <workItem from="1752133539639" duration="2751000" />
       <workItem from="1752139228074" duration="36000" />
+      <workItem from="1752147119399" duration="412000" />
     </task>
     <servers />
   </component>
