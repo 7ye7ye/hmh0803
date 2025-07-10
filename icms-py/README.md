@@ -15,4 +15,3 @@ cd test
 
 使用pip install -r requirements.txt 安装目前所需的所有依赖
 
-uvicorn pullStream:app --reload
