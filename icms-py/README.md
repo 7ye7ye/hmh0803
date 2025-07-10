@@ -16,3 +16,15 @@ cd test
 使用pip install -r requirements.txt 安装目前所需的所有依赖
 
 uvicorn pullStream:app --reload
+
+
+
+deepface包下载在py3.11虚拟环境中下载
+
+pip install deepface==0.0.93 "tensorflow~=2.19.0"
+
+
+
+运行报错试一下
+
+pip install tf-keras

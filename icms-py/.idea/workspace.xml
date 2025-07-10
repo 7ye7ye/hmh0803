@@ -5,22 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/icms-py.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/icms-py.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api/analysis_tasks.py" beforeDir="false" afterPath="$PROJECT_DIR$/api/analysis_tasks.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/pullStream.py" beforeDir="false" afterPath="$PROJECT_DIR$/app/pullStream.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/facial_recognition/pullStream.py" beforeDir="false" afterPath="$PROJECT_DIR$/facial_recognition/facial.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/processing/frame_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/processing/frame_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.development" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.development" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.production" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.production" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package-lock.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/facial_recognition/facial.py" beforeDir="false" afterPath="$PROJECT_DIR$/facial_recognition/facial.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test/main.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,6 +25,17 @@
       <list>
         <option value="Python Script" />
       </list>
+    </option>
+  </component>
+  <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
+    <envs>
+      <env key="FLASK_APP" value="app" />
+    </envs>
+    <option name="myCustomStartScript" value="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))" />
+    <option name="myEnvs">
+      <map>
+        <entry key="FLASK_APP" value="app" />
+      </map>
     </option>
   </component>
   <component name="Git.Settings">
@@ -59,8 +60,8 @@
     "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "caoyue",
-    "last_opened_file_path": "D:/yeyeye/code/小学期/project/icms-py",
+    "git-widget-placeholder": "hyx",
+    "last_opened_file_path": "D:/test.py/Face",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -105,6 +106,7 @@
       </set>
     </attachedChunks>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">
       <changelist id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
