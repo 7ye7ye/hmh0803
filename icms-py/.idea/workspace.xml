@@ -4,11 +4,31 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
+    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.development" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.development" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.production" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.production" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="DjangoConsoleOptions" custom-start-script="import sys; print('Python %s on %s' % (sys.version, sys.platform))&#10;import django; print('Django %s' % django.get_version())&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;if 'setup' in dir(django): django.setup()&#10;import django_manage_shell; django_manage_shell.run(PROJECT_ROOT)">
+    <option name="myCustomStartScript" value="import sys; print('Python %s on %s' % (sys.version, sys.platform))&#10;import django; print('Django %s' % django.get_version())&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;if 'setup' in dir(django): django.setup()&#10;import django_manage_shell; django_manage_shell.run(PROJECT_ROOT)" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -34,18 +54,20 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;ASKED_MARK_IGNORED_FILES_AS_EXCLUDED&quot;: &quot;true&quot;,
     &quot;Django 服务器.icms-py.executor&quot;: &quot;Run&quot;,
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.OpenDjangoStructureViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;caoyue&quot;,
     &quot;last_opened_file_path&quot;: &quot;D:/yeyeye/code/小学期/project/icms-py&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -97,6 +119,13 @@
       <workItem from="1751949050880" duration="199000" />
       <workItem from="1751949514353" duration="12000" />
       <workItem from="1751957200288" duration="2613000" />
+      <workItem from="1751963539052" duration="620000" />
+      <workItem from="1752050710553" duration="650000" />
+      <workItem from="1752108331790" duration="5247000" />
+      <workItem from="1752127379429" duration="2377000" />
+      <workItem from="1752131562817" duration="1955000" />
+      <workItem from="1752133539639" duration="2751000" />
+      <workItem from="1752139228074" duration="36000" />
     </task>
     <servers />
   </component>

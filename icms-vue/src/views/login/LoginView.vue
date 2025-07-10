@@ -1,93 +1,136 @@
 <template>
+  <!-- 登录页面的根容器 -->
   <div class="login-page">
+    <!-- 消息提示框，用于显示各种操作反馈 -->
     <div id="messageBox" v-if="messageText">{{ messageText }}</div>
+    <!-- 主容器，包含注册和登录表单 -->
     <div class="shell">
+      <!-- 注册表单容器 -->
       <div class="container a-container" id="a-container">
+        <!-- 注册表单，阻止默认提交行为 -->
         <form @submit.prevent="handleRegister" class="form" id="a-form">
+          <!-- 注册表单标题 -->
           <h2 class="form_title title">创建账号</h2>
+          <!-- 注册表单提示文本 -->
           <span class="form_span">请选择注册角色并完成人脸信息采集</span>
+          <!-- 角色选择器组件 -->
           <div class="role-selector">
             <a-radio-group v-model:value="registerForm.role">
               <a-radio-button value="student">学生</a-radio-button>
               <a-radio-button value="teacher">教师</a-radio-button>
             </a-radio-group>
           </div>
+          <!-- 注册表单输入字段 -->
           <input type="text" class="form_input" v-model="registerForm.username" placeholder="请输入用户名">
           <input type="password" class="form_input" v-model="registerForm.password" placeholder="请输入密码">
           <input type="password" class="form_input" v-model="registerForm.checkPassword" placeholder="请确认密码">
           
+          <!-- 人脸采集区域 -->
           <div class="face-capture">
+            <!-- 视频采集容器，当未采集到人脸图像时显示 -->
             <div class="video-container" v-if="!registerForm.faceImage">
-              <video ref="videoRef" class="capture-video" autoplay playsinline muted></video>
-              <div class="camera-placeholder" v-if="!currentStream">
-                <div class="camera-icon">📷</div>
-                <div class="camera-text">等待摄像头权限...</div>
-                <div class="camera-help">{{ errorMessage || '如看不到摄像头画面，请点击地址栏的锁头图标授予权限' }}</div>
+              <!-- 视频未就绪时的占位提示 -->
+              <div class="camera-placeholder" v-if="!isRegisterPlayerReady">
+                <div class="camera-icon">📺</div>
+                <div class="camera-text">正在连接视频流...</div>
+                <div class="camera-help">{{ errorMessage || '如无法显示视频，请检查网络连接' }}</div>
               </div>
-              <a-button class="capture-btn" @click="captureFace" :disabled="!currentStream">采集人脸信息</a-button>
+              <!-- 人脸采集按钮 -->
+              <a-button class="capture-btn" @click="captureFaceForRegister">
+                {{ isProcessing ? '正在采集中...' : '采集人脸信息' }}
+              </a-button>
             </div>
+            <!-- 人脸预览容器，采集完成后显示 -->
             <div class="preview-container" v-else>
               <img :src="registerForm.faceImage" class="face-preview" alt="人脸预览" />
               <a-button class="recapture-btn" @click="resetCapture">重新采集</a-button>
             </div>
           </div>
 
-          <button class="form_button button submit" @click.prevent="handleRegister" :disabled="!isRegisterFormValid">注 册</button>
+          <!-- 注册提交按钮 -->
+          <button class="form_button button submit" @click.prevent="handleRegister">注 册</button>
         </form>
       </div>
 
+      <!-- 登录表单容器 -->
       <div class="container b-container" id="b-container">
+        <!-- 登录表单，阻止默认提交行为 -->
         <form @submit.prevent="handleLogin" class="form" id="b-form">
+          <!-- 登录表单标题，根据登录状态显示不同文本 -->
           <h2 class="form_title title">{{ isLoggedIn ? '欢迎回来' : '登入账号' }}</h2>
+          <!-- 未登录状态下显示的登录表单 -->
           <template v-if="!isLoggedIn">
+            <!-- 登录表单提示文本 -->
             <span class="form_span">请选择登录角色并完成人脸验证</span>
+            <!-- 角色选择器组件 -->
             <div class="role-selector">
               <a-radio-group v-model:value="loginForm.role">
                 <a-radio-button value="student">学生</a-radio-button>
                 <a-radio-button value="teacher">教师</a-radio-button>
               </a-radio-group>
             </div>
+            <!-- 登录表单输入字段 -->
             <input type="text" class="form_input" v-model="loginForm.username" placeholder="请输入用户名">
             <input type="password" class="form_input" v-model="loginForm.password" placeholder="请输入密码">
             
+            <!-- 人脸验证区域 -->
             <div class="face-capture">
+              <!-- 视频采集容器，当未采集到人脸图像时显示 -->
               <div class="video-container" v-if="!loginForm.faceImage">
-                <video ref="loginVideoRef" class="capture-video" autoplay playsinline muted></video>
-                <div class="camera-placeholder" v-if="!currentStream">
-                  <div class="camera-icon">📷</div>
-                  <div class="camera-text">等待摄像头权限...</div>
-                  <div class="camera-help">{{ errorMessage || '如看不到摄像头画面，请点击地址栏的锁头图标授予权限' }}</div>
+                <!-- RTMP流播放器容器 -->
+                <div data-vjs-player>
+                  <video ref="loginPlayer" class="video-js vjs-big-play-centered capture-video" controls></video>
                 </div>
-                <a-button class="capture-btn" @click="captureFaceForLogin" :disabled="!currentStream">人脸验证</a-button>
+                <!-- 视频未就绪时的占位提示 -->
+                <div class="camera-placeholder" v-if="!isLoginPlayerReady">
+                  <div class="camera-icon">📺</div>
+                  <div class="camera-text">正在连接视频流...</div>
+                  <div class="camera-help">{{ errorMessage || '如无法显示视频，请检查网络连接' }}</div>
+                </div>
+                <!-- 人脸验证按钮 -->
+                <a-button class="capture-btn" @click="captureFaceForLogin" :disabled="!isLoginPlayerReady || isProcessing" :loading="isProcessing">
+                  {{ isProcessing ? '正在验证中...' : '人脸验证' }}
+                </a-button>
               </div>
+              <!-- 人脸预览容器，验证完成后显示 -->
               <div class="preview-container" v-else>
                 <img :src="loginForm.faceImage" class="face-preview" alt="人脸预览" />
                 <a-button class="recapture-btn" @click="resetLoginCapture">重新验证</a-button>
               </div>
             </div>
 
+            <!-- 忘记密码链接 -->
             <a class="form_link">忘记密码？</a>
-            <button class="form_button button submit" @click.prevent="handleLogin" :disabled="!isLoginFormValid">登 录</button>
+            <!-- 登录提交按钮 -->
+            <button class="form_button button submit" @click.prevent="handleLogin">登 录</button>
           </template>
+          <!-- 已登录状态下显示的用户信息 -->
           <template v-else>
             <div class="user-info">
+              <!-- 欢迎文本 -->
               <span class="welcome-text">欢迎您，{{ currentUsername }}</span>
+              <!-- 用户角色标签 -->
               <div class="role-tag">{{ currentRole === 'teacher' ? '教师' : '学生' }}</div>
+              <!-- 退出登录按钮 -->
               <button class="form_button button submit" @click.prevent="handleLogout">退出登录</button>
             </div>
           </template>
         </form>
       </div>
 
+      <!-- 切换面板 -->
       <div class="switch" id="switch-cnt">
+        <!-- 装饰性圆形背景 -->
         <div class="switch_circle"></div>
         <div class="switch_circle switch_circle-t"></div>
+        <!-- 切换到登录的面板内容 -->
         <div class="switch_container" id="switch-c1">
           <h2 class="switch_title title" style="letter-spacing: 0;">Welcome Back！</h2>
           <p class="switch_description description">已有账号，登入账号来使用我们的系统！</p>
           <button class="switch_button button switch-btn" @click="changeForm">登 录</button>
         </div>
 
+        <!-- 切换到注册的面板内容 -->
         <div class="switch_container is-hidden" id="switch-c2">
           <h2 class="switch_title title" style="letter-spacing: 0;">Hello Friend！</h2>
           <p class="switch_description description">注册一个新账号，开始使用我们的系统！</p>
@@ -99,42 +142,57 @@
 </template>
 
 <script>
+// 导入所需的Vue组件和工具
 import { defineComponent, ref, reactive, onMounted, watch, computed, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
+import { aiApi } from '../../api/ai'
+import { message } from 'ant-design-vue';
+
+import 'video.js/dist/video-js.css'
 
 export default defineComponent({
   name: 'LoginView',
   setup() {
+    // 初始化路由和状态管理
     const router = useRouter()
     const route = useRoute()
     const loginUserStore = useLoginUserStore()
-    const isRegisterForm = ref(false)
-    const isLoggedIn = ref(false)
-    const currentUsername = ref('')
-    const currentRole = ref('')
-    const messageText = ref('')
-    const videoRef = ref(null)
-    const loginVideoRef = ref(null)
-    const currentStream = ref(null)
-    const errorMessage = ref('')
 
+    // 组件状态管理
+    const isRegisterForm = ref(false)  // 控制显示注册还是登录表单
+    const isLoggedIn = ref(false)      // 用户登录状态
+    const currentUsername = ref('')     // 当前登录用户名
+    const currentRole = ref('')         // 当前用户角色
+    const messageText = ref('')         // 消息提示文本
+    const registerPlayer = ref(null)    // 注册表单播放器引用
+    const loginPlayer = ref(null)       // 登录表单播放器引用
+    const playerInstances = ref({})     // 播放器实例存储
+    const isRegisterPlayerReady = ref(false) // 注册播放器就绪状态
+    const isLoginPlayerReady = ref(false)    // 登录播放器就绪状态
+    const errorMessage = ref('')        // 错误消息
+    const isProcessing = ref(false)     // 处理状态标志
+
+    // 登录表单数据
     const loginForm = reactive({
       username: '',
       password: '',
       role: 'student',
-      faceImage: ''
+      faceEmbedding: null // 用于存储特征向量
     })
 
+    // 注册表单数据
     const registerForm = reactive({
       username: '',
       password: '',
       checkPassword: '',
       role: 'student',
-      faceImage: ''
+      faceImage: '',
+      faceEmbedding: null // 用于存储特征向量
     })
 
+    // 注册表单验证计算属性
     const isRegisterFormValid = computed(() => {
       return registerForm.username &&
              registerForm.password &&
@@ -144,116 +202,77 @@ export default defineComponent({
              registerForm.faceImage
     })
 
+    // 登录表单验证计算属性
     const isLoginFormValid = computed(() => {
       return loginForm.username &&
              loginForm.password &&
              loginForm.role &&
-             loginForm.faceImage
+             loginForm.faceEmbedding
     })
 
-    const initCamera = async (videoElement) => {
-      if (!videoElement) {
-        const errorMsg = '摄像头初始化失败: 视频DOM元素未找到。'
-        console.error(errorMsg)
-        errorMessage.value = errorMsg
-        return
-      }
+    // 注册时捕获人脸的函数
+    const captureFaceForRegister = async () => {      
+      isProcessing.value =true
 
       try {
-        stopCamera()
+        const faceEmbedding = await aiApi.start_facial_recognition()
+        console.log('faceEmbedding:', faceEmbedding)
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            facingMode: 'user'
-          },
-          audio: false
-        })
-
-        currentStream.value = stream
-        videoElement.srcObject = stream
-        videoElement.onloadedmetadata = () => {
-          videoElement.play().catch(err => {
-            console.error('视频播放失败:', err)
-            errorMessage.value = '视频播放失败，请刷新页面重试'
-          })
+        if (faceEmbedding) {
+          registerForm.faceEmbedding = faceEmbedding
+          showMessage('人脸信息采集成功')
         }
-        errorMessage.value = ''
-      } catch (err) {
-        console.error('摄像头初始化失败:', err)
-        let message = '摄像头初始化失败: '
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          message += '请在浏览器的权限提示中允许使用摄像头。如果没有看到提示，请点击地址栏的锁头图标，确保摄像头权限为"允许"。'
-        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          message += '未检测到摄像头设备，请确保摄像头已正确连接。'
-        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-          message += '摄像头可能被其他应用程序占用，请关闭其他使用摄像头的程序后重试。'
-        } else if (err.name === 'OverconstrainedError') {
-          message += '摄像头不支持请求的分辨率。'
-        } else {
-          message += '请检查摄像头权限和设备连接状态。'
-        }
-        errorMessage.value = message
-        showMessage(message)
+      } catch (error) {
+        console.error('人脸采集失败:', error)
+        showMessage('人脸采集失败，请重试')
+      } finally {
+        isProcessing.value = false
       }
     }
 
-    const stopCamera = () => {
-      if (currentStream.value) {
-        currentStream.value.getTracks().forEach(track => track.stop())
-        currentStream.value = null
-        // 安全地清除视频源
-        if (videoRef.value && videoRef.value.srcObject) videoRef.value.srcObject = null
-        if (loginVideoRef.value && loginVideoRef.value.srcObject) loginVideoRef.value.srcObject = null
+    // 登录时捕获人脸的函数
+    const captureFaceForLogin = async () => {      
+      isProcessing.value =true
+      try {
+        const faceEmbedding = await aiApi.start_facial_recognition()
+        console.log('faceEmbedding:', faceEmbedding)
+
+        if (faceEmbedding) {
+          loginForm.faceEmbedding = faceEmbedding
+          showMessage('人脸验证信息采集成功')
+        }
+      } catch (error) {
+        console.error('人脸验证采集失败:', error)
+        showMessage('人脸验证采集失败，请重试')
+      } finally {
+        isProcessing.value = false
       }
     }
 
-    const captureFace = () => {
-      if (!videoRef.value || !currentStream.value) return
-      const video = videoRef.value
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      canvas.getContext('2d').drawImage(video, 0, 0)
-      registerForm.faceImage = canvas.toDataURL('image/jpeg', 0.8)
-      stopCamera()
-    }
-
-    const captureFaceForLogin = () => {
-      if (!loginVideoRef.value || !currentStream.value) return
-      const video = loginVideoRef.value
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      canvas.getContext('2d').drawImage(video, 0, 0)
-      loginForm.faceImage = canvas.toDataURL('image/jpeg', 0.8)
-      stopCamera()
-    }
-
+    // 重置注册人脸采集的函数
     const resetCapture = () => {
-      registerForm.faceImage = ''
-      nextTick(() => initCamera(videoRef.value))
+      captureFaceForLogin()      // 重新捕获
     }
 
+    // 重置登录人脸采集的函数
     const resetLoginCapture = () => {
-      loginForm.faceImage = ''
-      nextTick(() => initCamera(loginVideoRef.value))
+      captureFaceForLogin()      // 重新捕获
     }
 
+    // 显示消息提示的函数
     const showMessage = (msg) => {
-      messageText.value = msg
-      setTimeout(() => {
-        messageText.value = ''
-      }, 3000)
+      console.log('msg:', msg)
+      message.info(msg)
     }
 
+    // 监听路由查询参数变化，显示消息
     watch(() => route.query, (newQuery) => {
       if (newQuery.message) {
         showMessage(newQuery.message)
       }
     }, { immediate: true })
 
+    // 检查登录状态的函数
     const checkLoginStatus = async () => {
       try {
         const response = await userApi.getCurrentUser()
@@ -268,6 +287,7 @@ export default defineComponent({
       }
     }
 
+    // 退出登录的函数
     const handleLogout = async () => {
       try {
         await userApi.logout()
@@ -281,6 +301,7 @@ export default defineComponent({
       }
     }
 
+    // 处理登录的函数
     const handleLogin = async () => {
       try {
         const response = await userApi.login(loginForm)
@@ -289,8 +310,8 @@ export default defineComponent({
           const { username, role } = userData
           loginUserStore.setLoginUser(username)
           currentRole.value = role
-          isLoggedIn.value = true // 更新登录状态
-          currentUsername.value = username // 更新当前用户名
+          isLoggedIn.value = true 
+          currentUsername.value = username 
           const redirect = route.query.redirect
           if (role === 'student') {
             router.push(redirect || '/home')
@@ -299,7 +320,7 @@ export default defineComponent({
           }
         } else {
           loginUserStore.setLoginUser('未登录')
-          showMessage('登录失败，请检查用户名、密码或人脸信息')
+          showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
         }
       } catch (error) {
         console.error('登录请求失败:', error)
@@ -308,11 +329,13 @@ export default defineComponent({
       }
     }
 
+    // 处理注册的函数
     const handleRegister = async () => {
       if (registerForm.password !== registerForm.checkPassword) {
         showMessage('两次输入的密码不一致')
         return
       }
+      
       try {
         const response = await userApi.register(registerForm)
         const { data } = response
@@ -328,11 +351,12 @@ export default defineComponent({
       }
     }
 
+    // 切换登录/注册表单的函数
     const changeForm = () => {
       isRegisterForm.value = !isRegisterForm.value
-      stopCamera()
-      errorMessage.value = '' // 清空错误信息
+      errorMessage.value = '' 
       
+      // 获取DOM元素
       const switchCtn = document.querySelector("#switch-cnt")
       const switchC1 = document.querySelector("#switch-c1")
       const switchC2 = document.querySelector("#switch-c2")
@@ -340,11 +364,13 @@ export default defineComponent({
       const aContainer = document.querySelector("#a-container")
       const bContainer = document.querySelector("#b-container")
 
+      // 添加过渡动画类
       switchCtn.classList.add("is-gx")
       setTimeout(() => {
         switchCtn.classList.remove("is-gx")
       }, 1500)
 
+      // 切换表单显示状态
       switchCtn.classList.toggle("is-txr")
       switchCircles.forEach(circle => circle.classList.toggle("is-txr"))
       switchC1.classList.toggle("is-hidden")
@@ -353,39 +379,41 @@ export default defineComponent({
       bContainer.classList.toggle("is-txl")
       bContainer.classList.toggle("is-z")
 
+      // 初始化对应的播放器
       nextTick(() => {
         if (isRegisterForm.value) {
-          initCamera(videoRef.value)
         } else {
-          initCamera(loginVideoRef.value)
         }
       })
     }
 
+    // 组件挂载时的处理
     onMounted(() => {
       const main = document.querySelector("#switch-cnt")
-      // 检查登录状态
       checkLoginStatus().then(() => {
-        // 如果已登录，则不执行切换和摄像头初始化逻辑
         if(isLoggedIn.value) return;
 
-        // 如果未登录，执行下面的逻辑
         const shouldRegister = route.query.register === 'true'
         if (shouldRegister) {
-          // 确保DOM元素存在再执行
           if(main) changeForm()
         } else {
           nextTick(() => {
-            initCamera(loginVideoRef.value)
           })
         }
       })
     })
 
+    // 组件卸载时的清理
     onUnmounted(() => {
-      stopCamera()
+      // 销毁所有播放器实例
+      Object.values(playerInstances.value).forEach(player => {
+        if (player && typeof player.dispose === 'function') {
+          player.dispose()
+        }
+      })
     })
 
+    // 返回组件所需的响应式数据和方法
     return {
       loginForm,
       registerForm,
@@ -398,26 +426,28 @@ export default defineComponent({
       handleLogout,
       changeForm,
       messageText,
-      videoRef,
-      loginVideoRef,
-      currentStream,
+      registerPlayer,
+      loginPlayer,
+      isRegisterPlayerReady,
+      isLoginPlayerReady,
       errorMessage,
-      captureFace,
+      captureFaceForRegister,
       captureFaceForLogin,
       resetCapture,
       resetLoginCapture,
       isRegisterFormValid,
-      isLoginFormValid
+      isLoginFormValid,
+      isProcessing
     }
   }
 })
 </script>
 
 <style scoped>
-/* 导入字体图标 */
+/* 导入字体图标库 */
 @import url('./fonts/iconfont.css');
 
-/* 消息提示框样式 */
+/* 消息提示框样式 - 固定定位在顶部中间 */
 #messageBox {
   position: fixed;
   top: 1px;
@@ -429,22 +459,21 @@ export default defineComponent({
   border-radius: 6px;
   font-size: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  display: none;
   z-index: 9999;
 }
 
-/* 全局重置样式 */
+/* 全局样式重置 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  user-select: none; /* 禁止文本选择 */
+  user-select: none; /* 禁止文本选择，提升用户体验 */
 }
 
-/* 登录页面容器 */
+/* 登录页面主容器 - 使用flex布局居中内容 */
 .login-page {
   width: 100%;
-  height: 85vh; /* 使用视口高度 */
+  height: 85vh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -453,12 +482,12 @@ export default defineComponent({
   color: #666;
 }
 
-/* 主容器样式 */
+/* 主要内容外壳 - 包含登录和注册表单的容器 */
 .shell {
   position: relative;
-  width: 80vw; /* 使用视口宽度的80% */
-  max-width: 1400px; /* 最大宽度限制 */
-  min-width: 1200px; /* 最小宽度限制 */
+  width: 80vw;
+  max-width: 1400px;
+  min-width: 1200px;
   height: 30vh;
   min-height: 600px;
   padding: 20px;
@@ -468,7 +497,7 @@ export default defineComponent({
   overflow: hidden;
 }
 
-/* 表单容器样式 */
+/* 表单容器基础样式 */
 .container {
   display: flex;
   justify-content: center;
@@ -482,19 +511,19 @@ export default defineComponent({
   transition: 1.25s;
 }
 
-/* 注册表单容器初始位置 */
+/* 注册表单容器位置 */
 .a-container {
-  left: 40%;  /* 初始位置在右侧 */
+  left: 40%;
   z-index: 10;
 }
 
-/* 登录表单容器初始位置 */
+/* 登录表单容器位置 */
 .b-container {
-  left: 40%;  /* 初始位置在右侧 */
+  left: 40%;
   z-index: 0;
 }
 
-/* 表单样式 */
+/* 表单通用样式 */
 .form {
   display: flex;
   justify-content: flex-start;
@@ -515,44 +544,19 @@ export default defineComponent({
   letter-spacing: 2px;
 }
 
-/* 社交图标容器 */
-.form_icons {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 15px;
-  gap: 15px;
-}
-
-/* 单个图标样式 */
-.iconfont {
-  font-size: 20px;
-  padding: 12px;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  border-radius: 50%;
-  color: #666;
-  transition: all 0.3s ease;
-}
-
-/* 图标悬停效果 */
-.iconfont:hover {
-  border-color: #4B70E2;
-  color: #4B70E2;
-  transform: translateY(-2px);
-}
-
-/* 表单提示文本 */
+/* 表单提示文本样式 */
 .form_span {
   font-size: 14px;
   color: #666;
   margin-bottom: 15px;
 }
 
-/* 角色选择器容器 */
+/* 角色选择器容器样式 */
 .role-selector {
   margin-bottom: 15px;
 }
 
-/* 输入框样式 */
+/* 表单输入框样式 */
 .form_input {
   width: 100%;
   max-width: 400px;
@@ -566,10 +570,11 @@ export default defineComponent({
   transition: all 0.3s ease;
 }
 
-/* 输入框焦点状态 */
+/* 输入框获得焦点时的样式 */
 .form_input:focus {
   border-color: #4B70E2;
   box-shadow: 0 0 0 3px rgba(75, 112, 226, 0.1);
+  outline: none;
 }
 
 /* 人脸采集区域样式 */
@@ -581,6 +586,7 @@ export default defineComponent({
   align-items: center;
 }
 
+/* 视频容器样式 */
 .video-container {
   width: 100%;
   max-width: 400px;
@@ -595,6 +601,7 @@ export default defineComponent({
   justify-content: center;
 }
 
+/* 视频元素样式 */
 .capture-video {
   width: 100%;
   height: 100%;
@@ -602,6 +609,7 @@ export default defineComponent({
   border-radius: 12px;
 }
 
+/* 摄像头占位符样式 */
 .camera-placeholder {
   position: absolute;
   top: 0;
@@ -618,18 +626,21 @@ export default defineComponent({
   text-align: center;
 }
 
+/* 摄像头图标样式 */
 .camera-icon {
   font-size: 48px;
   margin-bottom: 15px;
   color: #666;
 }
 
+/* 摄像头提示文本样式 */
 .camera-text {
   font-size: 16px;
   color: #333;
   margin-bottom: 10px;
 }
 
+/* 摄像头帮助文本样式 */
 .camera-help {
   font-size: 14px;
   color: #666;
@@ -637,6 +648,7 @@ export default defineComponent({
   line-height: 1.4;
 }
 
+/* 采集按钮样式 */
 .capture-btn {
   position: absolute;
   bottom: 20px;
@@ -652,16 +664,19 @@ export default defineComponent({
   transition: all 0.3s ease;
 }
 
+/* 采集按钮悬停效果 */
 .capture-btn:hover:not(:disabled) {
   background-color: #45a049;
   transform: translateX(-50%) scale(1.05);
 }
 
+/* 采集按钮禁用状态 */
 .capture-btn:disabled {
   background-color: #cccccc;
   cursor: not-allowed;
 }
 
+/* 预览容器样式 */
 .preview-container {
   width: 100%;
   max-width: 400px;
@@ -671,6 +686,7 @@ export default defineComponent({
   overflow: hidden;
 }
 
+/* 人脸预览图片样式 */
 .face-preview {
   width: 100%;
   height: 100%;
@@ -678,6 +694,7 @@ export default defineComponent({
   border-radius: 12px;
 }
 
+/* 重新采集按钮样式 */
 .recapture-btn {
   position: absolute;
   bottom: 20px;
@@ -692,6 +709,7 @@ export default defineComponent({
   transition: all 0.3s ease;
 }
 
+/* 重新采集按钮悬停效果 */
 .recapture-btn:hover {
   background-color: #ff3333;
   transform: translateX(-50%) scale(1.05);
@@ -728,14 +746,14 @@ export default defineComponent({
   box-shadow: none;
 }
 
-/* 切换面板容器 */
+/* 切换面板容器样式 */
 .switch {
   display: flex;
   justify-content: center;
   align-items: center;
   position: absolute;
   top: 0;
-  left: 0;  /* 初始位置在左侧 */
+  left: 0;
   height: 100%;
   width: 40%;
   padding: 30px;
@@ -745,7 +763,7 @@ export default defineComponent({
   overflow: hidden;
 }
 
-/* 切换面板背景圆形 */
+/* 切换面板背景圆形装饰 */
 .switch_circle {
   position: absolute;
   width: 500px;
@@ -757,7 +775,7 @@ export default defineComponent({
   transition: 1.25s;
 }
 
-/* 切换面板顶部圆形 */
+/* 切换面板顶部圆形装饰 */
 .switch_circle-t {
   top: -30%;
   left: 60%;
@@ -765,7 +783,7 @@ export default defineComponent({
   height: 300px;
 }
 
-/* 切换面板内容容器 */
+/* 切换面板内容容器样式 */
 .switch_container {
   display: flex;
   justify-content: center;
@@ -778,7 +796,7 @@ export default defineComponent({
   color: white;
 }
 
-/* 切换面板标题 */
+/* 切换面板标题样式 */
 .switch_title {
   font-size: 28px;
   font-weight: 700;
@@ -786,7 +804,7 @@ export default defineComponent({
   margin-bottom: 15px;
 }
 
-/* 切换面板描述文本 */
+/* 切换面板描述文本样式 */
 .switch_description {
   font-size: 14px;
   text-align: center;
@@ -815,27 +833,27 @@ export default defineComponent({
   transform: translateY(-2px);
 }
 
-/* 向右移动动画 */
+/* 切换面板向右移动动画类 */
 .is-txr {
-  left: 60%;  /* 移动到右侧60%的位置 */
+  left: 60%;
   transition: 1.25s;
   transform-origin: left;
 }
 
-/* 向左移动动画 */
+/* 切换面板向左移动动画类 */
 .is-txl {
-  left: 0;  /* 移动到最左侧 */
+  left: 0;
   transition: 1.25s;
   transform-origin: right;
 }
 
-/* 控制层级 */
+/* 控制元素层级的类 */
 .is-z {
   z-index: 200;
   transition: 1.25s;
 }
 
-/* 隐藏元素 */
+/* 隐藏元素的类 */
 .is-hidden {
   visibility: hidden;
   opacity: 0;
@@ -854,7 +872,7 @@ export default defineComponent({
   font-size: 14px;
 }
 
-/* 用户信息容器 */
+/* 用户信息容器样式 */
 .user-info {
   text-align: center;
 }
@@ -866,4 +884,15 @@ export default defineComponent({
   font-weight: 600;
   margin-bottom: 8px;
 }
-</style> 
+
+/* Video.js播放器样式调整 */
+::v-deep .video-js .vjs-big-play-button {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+::v-deep .vjs-fluid {
+  padding-top: 0 !important;
+}
+</style>

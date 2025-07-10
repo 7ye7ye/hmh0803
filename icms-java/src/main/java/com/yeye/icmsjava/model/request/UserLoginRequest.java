@@ -12,6 +12,7 @@ public class UserLoginRequest implements Serializable {
 
     private String username;
     private String password;
+    private String faceEmbedding;
 
     public String getUsername() {
         return username;
@@ -19,5 +20,9 @@ public class UserLoginRequest implements Serializable {
 
     public String getPassword() {
         return password;
+    }
+
+    public String getfaceEmbedding() {
+        return faceEmbedding;
     }
 }

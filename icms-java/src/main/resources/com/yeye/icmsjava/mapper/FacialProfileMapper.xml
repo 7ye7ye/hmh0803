@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yeye.icmsjava.mapper.FacialProfileMapper">
+
+    <resultMap id="BaseResultMap" type="com.yeye.icmsjava.model.FacialProfile">
+            <id property="profileId" column="profile_id" />
+            <result property="userId" column="user_id" />
+            <result property="faceEmbedding" column="face_embedding" />
+            <result property="sourceImageUrl" column="source_image_url" />
+            <result property="isActive" column="is_active" />
+            <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        profile_id,user_id,face_embedding,source_image_url,is_active,created_at
+    </sql>
+</mapper>

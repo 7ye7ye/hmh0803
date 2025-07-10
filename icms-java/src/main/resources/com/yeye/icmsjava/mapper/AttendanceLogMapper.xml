@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yeye.icmsjava.mapper.AttendanceLogMapper">
+
+    <resultMap id="BaseResultMap" type="com.yeye.icmsjava.model.AttendanceLog">
+            <id property="id" column="id" />
+            <result property="logId" column="log_id" />
+            <result property="userId" column="user_id" />
+            <result property="timestamp" column="timestamp" />
+            <result property="snapshotUrl" column="snapshot_url" />
+            <result property="confidenceScore" column="confidence_score" />
+            <result property="livenessScore" column="liveness_score" />
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,log_id,user_id,timestamp,snapshot_url,confidence_score,
+        liveness_score
+    </sql>
+</mapper>
