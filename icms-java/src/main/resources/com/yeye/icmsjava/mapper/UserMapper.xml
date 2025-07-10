@@ -11,9 +11,12 @@
             <result property="role" column="role" />
             <result property="createdAt" column="created_at" />
             <result property="updatedAt" column="updated_at" />
+            <result property="faceEmbedding" column="face_embedding" />
+            <result property="sourceImageUrl" column="source_image_url" />
     </resultMap>
 
     <sql id="Base_Column_List">
-        user_id,username,password,role,created_at,updated_at
+        user_id,username,password,role,created_at,updated_at,
+        face_embedding,source_image_url
     </sql>
 </mapper>

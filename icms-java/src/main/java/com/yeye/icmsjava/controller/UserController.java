@@ -32,11 +32,12 @@ public class UserController {
         String username=userRegisterRequest.getUsername();
         String password=userRegisterRequest.getPassword();
         String checkPassword=userRegisterRequest.getCheckPassword();
+        String faceEmbedding=userRegisterRequest.getFaceEmbedding();
 
-        if(StringUtils.isAnyBlank(username,password,checkPassword)){
+        if(StringUtils.isAnyBlank(username,password,checkPassword,faceEmbedding)){
             return 0;
         }
-        return userService.userRegister(username,password,checkPassword);
+        return userService.userRegister(username,password,checkPassword,faceEmbedding);
     }
 
     @PostMapping("/login")
@@ -47,6 +48,7 @@ public class UserController {
 
         String username = userLoginRequest.getUsername();
         String password = userLoginRequest.getPassword();
+        String faceEmbedding=userLoginRequest.getFaceEmbedding();
 
         System.out.println(username);
         System.out.println(password);
@@ -55,7 +57,7 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("用户名和密码不能为空");
         }
         // 调用服务层进行登录验证
-        User user = userService.userLogin(username, password, request);
+        User user = userService.userLogin(username, password, request,faceEmbedding);
 
         if (user == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密码错误");
