@@ -12,3 +12,7 @@ cd test
 此时启动java后端，点击前端custom按钮，访问localhost:8090/test/reverse或在f12控制台信息
 
 即可看到反转的字符串
+
+使用pip install -r requirements.txt 安装目前所需的所有依赖
+
+uvicorn pullStream:app --reload

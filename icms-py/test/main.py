@@ -20,3 +20,7 @@ async def reverse_string(text_to_reverse: str = Body(..., media_type="text/plain
     reversed_str = text_to_reverse[::-1]
     print(f"FastAPI sending back raw string: {reversed_str}")
     return reversed_str # <-- 直接返回字符串
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
