@@ -22,7 +22,7 @@ public class UserLoginRequest implements Serializable {
         return password;
     }
 
-    public String getfaceEmbedding() {
+    public String getFaceEmbedding() {
         return faceEmbedding;
     }
 }
