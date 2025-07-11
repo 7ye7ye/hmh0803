@@ -13,7 +13,7 @@ from core.state import app_state
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-VIDEO_STREAM_URL = "rtmp://120.46.210.148:1935/live/livestream"
+VIDEO_STREAM_URL = "rtmp://121.36.44.77:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'opencv'
 
@@ -57,9 +57,11 @@ async def ai_processing_task():
                     vector = face_info['embedding']
                     region = face_info['facial_area']  # DeepFace新版使用'facial_area'
 
+                    vector_str = ",".join(map(str,vector))
+
                     # 安全地更新全局状态
                     async with app_state.lock:
-                        app_state.latest_vector = vector
+                        app_state.latest_vector = vector_str
                         app_state.last_face_location = region
                         app_state.stats["faces_detected"] += 1
                         app_state.stats["last_detection_time"] = time.strftime("%Y-%m-%d %H:%M:%S")

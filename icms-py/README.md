@@ -29,3 +29,5 @@ pip install tf-keras
 pip install fastapi uvicorn requests numpy scipy
 
 拉推流地址：rtmp://120.46.210.148:1935/live/livestream
+
+uvicorn main:app --reload

@@ -7,7 +7,7 @@ class AppState:
     def __init__(self):
         self.latest_frame: np.ndarray | None = None
         self.processed_frame: np.ndarray | None = None
-        self.latest_vector: list | None = None
+        self.latest_vector: str | None = None
         self.last_face_location: Dict | None = None
         self.is_ai_processing: bool = False
         self.lock = asyncio.Lock()
