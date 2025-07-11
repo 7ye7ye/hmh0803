@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from facial_recognition import facial
+from facial_recognition.facial import router as facial_stream_router
+from facial_recognition.facial_login import router as facial_login_router
 
 app = FastAPI(
     title="ICMS - Intelligent Camera Management System",
@@ -15,7 +16,8 @@ app = FastAPI(
 #    这里应该包含你前端应用的地址。
 origins = [
     "http://localhost",
-    "http://localhost:8085",
+    "http://localhost:8087",
+    "http://localhost:8085"
 
 ]
 
@@ -28,10 +30,10 @@ app.add_middleware(
     allow_headers=["*"],         # 允许所有 HTTP 请求头
 )
 
-# --- CORS 配置结束 ---
 # Include routers
-app.include_router(facial.router, tags=["facial"])
-
+#app.include_router(facial.router, tags=["facial"])
+app.include_router(facial_stream_router)
+app.include_router(facial_login_router)
 
 if __name__ == "__main__":
     import uvicorn

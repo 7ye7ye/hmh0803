@@ -7,8 +7,9 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from deepface import DeepFace
 import numpy as np
 from typing import Dict, Any
+from core.state import app_state
 
-# --- 1. 日志和配置 ---
+# 日志和配置
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -16,39 +17,11 @@ VIDEO_STREAM_URL = "rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'opencv'
 
-
-# --- 2. 优化后的全局状态管理 (核心) ---
-# 使用一个更结构化的状态字典
-class AppState:
-    def __init__(self):
-        self.latest_frame: np.ndarray | None = None  # 最新的原始视频帧
-        self.processed_frame: np.ndarray | None = None  # 最新一帧经过AI处理并绘制了结果的帧
-        self.latest_vector: list | None = None  # 最新提取的向量
-        self.last_face_location: Dict | None = None  # 最新人脸位置
-        self.is_ai_processing: bool = False  # AI是否正在处理中 (关键的锁状态)
-        self.lock = asyncio.Lock()  # 异步锁，用于安全地修改状态
-        self.stats: Dict[str, Any] = {  # 统计信息
-            "total_frames_streamed": 0,
-            "ai_tasks_triggered": 0,
-            "faces_detected": 0,
-            "last_detection_time": None,
-            "error_count": 0,
-            "fps_report": {
-                "start_time": time.time(),
-                "frame_count": 0,
-                "fps": 0.0
-            }
-        }
-
-
-# 创建全局应用状态实例
-app_state = AppState()
-
-# --- 3. FastAPI 应用和路由 ---
+# FastAPI 应用和路由
 router = APIRouter(prefix="/ai/facial", tags=["facial"])
 
 
-# --- 4. 独立的、异步的AI处理后台任务 (核心优化) ---
+# AI面部处理后台任务
 async def ai_processing_task():
     """
     一个独立的后台协程，循环检查是否有新帧需要处理。
@@ -123,7 +96,7 @@ async def ai_processing_task():
         await asyncio.sleep(0.05)  # 休眠50毫秒
 
 
-# --- 5. 视频流生成器 (现在变得非常轻量) ---
+# 视频流生成器
 async def video_stream_generator():
     """
     视频流生成器，现在只负责从视频源读取帧，并推送最新的“已处理帧”。
@@ -181,7 +154,7 @@ async def video_stream_generator():
         await asyncio.sleep(1 / 60)  # 尝试匹配60fps的推送速率
 
 
-# --- 6. FastAPI应用生命周期事件 ---
+# FastAPI应用生命周期
 @router.on_event("startup")
 async def startup_event():
     """应用启动时，创建并启动后台AI任务"""
@@ -190,7 +163,7 @@ async def startup_event():
     asyncio.create_task(ai_processing_task())
 
 
-# --- 7. API 路由定义 (保持不变或微调) ---
+# API 路由定义
 @router.get("/")
 def read_root():
     return {"message": "人脸识别AI服务", "docs": "/docs"}
@@ -222,5 +195,5 @@ async def get_stats():
 
 
 # 主应用引入路由
-app = FastAPI(title="实时人脸识别AI服务")
-app.include_router(router)
+# app = FastAPI(title="实时人脸识别AI服务")
+# app.include_router(router)

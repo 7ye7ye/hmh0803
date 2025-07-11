@@ -28,3 +28,12 @@ pip install deepface==0.0.93 "tensorflow~=2.19.0"
 运行报错试一下
 
 pip install tf-keras
+
+
+
+登录的人脸识别逻辑 先安装
+
+pip install fastapi uvicorn requests numpy scipy
+
+
+
