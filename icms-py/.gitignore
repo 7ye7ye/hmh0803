@@ -7,7 +7,7 @@ venv/
 
 # IDE / Editor configs
 .idea/
-.vscode/
+.vscode/git rm -r --cached venv/
 
 # Build artifacts
 build/
