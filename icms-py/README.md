@@ -15,4 +15,4 @@ cd test
 
 使用pip install -r requirements.txt 安装目前所需的所有依赖
 
-uvicorn pullStream:app --reload
+拉推流地址：rtmp://120.46.210.148:1935/live/livestream
