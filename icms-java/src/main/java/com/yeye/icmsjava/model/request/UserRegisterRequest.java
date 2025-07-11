@@ -14,6 +14,7 @@ public class UserRegisterRequest implements Serializable {
     private String username;
     private String password;
     private String checkPassword;
+    private String faceEmbedding;
 
     public String getUsername() {
         return username;
@@ -25,5 +26,9 @@ public class UserRegisterRequest implements Serializable {
 
     public String getCheckPassword() {
         return checkPassword;
+    }
+
+    public String getFaceEmbedding() {
+        return faceEmbedding;
     }
 }

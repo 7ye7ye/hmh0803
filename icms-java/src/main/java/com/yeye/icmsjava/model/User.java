@@ -8,42 +8,52 @@ import java.time.LocalDateTime;
 import lombok.Data;
 
 /**
- * 
+ * 用户表，包含认证用户的面部特征信息
  * @TableName user
  */
 @TableName(value ="user")
 @Data
 public class User {
     /**
-     * 
+     * 用户唯一ID (自增)
      */
     @TableId(type = IdType.AUTO)
     private Integer userId;
 
     /**
-     * 
+     * 用户名/学号/工号 (唯一)
      */
     private String username;
 
     /**
-     * 
+     * 加密后的密码
      */
     private String password;
 
     /**
-     * 
+     * 用户角色
      */
     private Object role;
 
     /**
-     * 
+     * 创建时间
      */
     private LocalDateTime createdAt;
 
     /**
-     * 
+     * 最后更新时间
      */
     private LocalDateTime updatedAt;
+
+    /**
+     * 面部特征向量 （存储为JSON数组字符串）
+     */
+    private String faceEmbedding;
+
+    /**
+     * 用于注册的源照片存储路径
+     */
+    private String sourceImageUrl;
 
     @Override
     public boolean equals(Object that) {
@@ -62,7 +72,9 @@ public class User {
             && (this.getPassword() == null ? other.getPassword() == null : this.getPassword().equals(other.getPassword()))
             && (this.getRole() == null ? other.getRole() == null : this.getRole().equals(other.getRole()))
             && (this.getCreatedAt() == null ? other.getCreatedAt() == null : this.getCreatedAt().equals(other.getCreatedAt()))
-            && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()));
+            && (this.getUpdatedAt() == null ? other.getUpdatedAt() == null : this.getUpdatedAt().equals(other.getUpdatedAt()))
+            && (this.getFaceEmbedding() == null ? other.getFaceEmbedding() == null : this.getFaceEmbedding().equals(other.getFaceEmbedding()))
+            && (this.getSourceImageUrl() == null ? other.getSourceImageUrl() == null : this.getSourceImageUrl().equals(other.getSourceImageUrl()));
     }
 
     @Override
@@ -75,6 +87,8 @@ public class User {
         result = prime * result + ((getRole() == null) ? 0 : getRole().hashCode());
         result = prime * result + ((getCreatedAt() == null) ? 0 : getCreatedAt().hashCode());
         result = prime * result + ((getUpdatedAt() == null) ? 0 : getUpdatedAt().hashCode());
+        result = prime * result + ((getFaceEmbedding() == null) ? 0 : getFaceEmbedding().hashCode());
+        result = prime * result + ((getSourceImageUrl() == null) ? 0 : getSourceImageUrl().hashCode());
         return result;
     }
 
@@ -90,6 +104,8 @@ public class User {
         sb.append(", role=").append(role);
         sb.append(", createdAt=").append(createdAt);
         sb.append(", updatedAt=").append(updatedAt);
+        sb.append(", faceEmbedding=").append(faceEmbedding);
+        sb.append(", sourceImageUrl=").append(sourceImageUrl);
         sb.append("]");
         return sb.toString();
     }

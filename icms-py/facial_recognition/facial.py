@@ -54,7 +54,7 @@ async def ai_processing_task():
     一个独立的后台协程，循环检查是否有新帧需要处理。
     这使得AI处理不会阻塞视频流的推送。
     """
-    logger.info("🤖 AI处理后台任务已启动...")
+    logger.info("AI处理后台任务已启动...")
     while True:
         # 如果AI当前空闲，并且有新的视频帧可以处理
         if not app_state.is_ai_processing and app_state.latest_frame is not None:
@@ -65,7 +65,7 @@ async def ai_processing_task():
                 frame_to_process = app_state.latest_frame.copy()
 
             app_state.stats["ai_tasks_triggered"] += 1
-            logger.info(f"🚀 触发第 {app_state.stats['ai_tasks_triggered']} 次AI处理任务...")
+            logger.info(f"触发第 {app_state.stats['ai_tasks_triggered']} 次AI处理任务...")
 
             try:
                 # 2. 将同步的、阻塞的DeepFace调用放入一个独立的线程中执行 (至关重要)
@@ -91,7 +91,7 @@ async def ai_processing_task():
                         app_state.stats["faces_detected"] += 1
                         app_state.stats["last_detection_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
-                    logger.info(f"✅ AI处理成功，检测到人脸，向量维度: {len(vector)}")
+                    logger.info(f"AI处理成功，检测到人脸，向量维度: {len(vector)}")
 
                     # 4. 在处理帧的副本上绘制结果，用于视频流显示
                     cv2.rectangle(frame_to_process, (region['x'], region['y']),
@@ -102,7 +102,7 @@ async def ai_processing_task():
 
             except ValueError:
                 # DeepFace在enforce_detection=True且未检测到人脸时会抛出此异常
-                logger.info("⚪ AI处理完成，当前帧未检测到人脸。")
+                logger.info("AI处理完成，当前帧未检测到人脸。")
                 async with app_state.lock:
                     # 可以选择清空上次的向量，或保留
                     app_state.latest_vector = None
@@ -111,7 +111,7 @@ async def ai_processing_task():
                 app_state.processed_frame = frame_to_process
 
             except Exception as e:
-                logger.error(f"❌ AI处理任务发生严重错误: {e}")
+                logger.error(f"AI处理任务发生严重错误: {e}")
                 app_state.stats["error_count"] += 1
 
             finally:
@@ -130,20 +130,20 @@ async def video_stream_generator():
     """
     cap = cv2.VideoCapture(VIDEO_STREAM_URL)
     if not cap.isOpened():
-        logger.error(f"❌ 无法打开视频流: {VIDEO_STREAM_URL}")
+        logger.error(f"无法打开视频流: {VIDEO_STREAM_URL}")
         return
 
-    logger.info("✅ 视频流连接成功，开始推流...")
+    logger.info("视频流连接成功，开始推流...")
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            logger.warning("⚠️ 视频帧读取失败，尝试重连...")
+            logger.warning("视频帧读取失败，尝试重连...")
             cap.release()
             await asyncio.sleep(2)
             cap = cv2.VideoCapture(VIDEO_STREAM_URL)
             if not cap.isOpened():
-                logger.error("❌ 重连失败，终止推流。")
+                logger.error("重连失败，终止推流。")
                 break
             continue
 

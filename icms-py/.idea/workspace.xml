@@ -4,7 +4,40 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
+    <list default="true" id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/AttendanceLogMapper.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/AttendanceLog.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/AttendanceLogService.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/AttendanceLogServiceImpl.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/AttendanceLogMapper.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/FacialProfileMapper.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../icms-vue/src/api/ai.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/hmh0803.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/project.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../.idea/workspace.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/mapper/UserMapper.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserLoginRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/model/request/UserRegisterRequest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/UserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/java/com/yeye/icmsjava/service/impl/UserServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-java/src/main/resources/com/yeye/icmsjava/mapper/UserMapper.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.development" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.development" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/.env.production" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/.env.production" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" beforeDir="false" afterPath="$PROJECT_DIR$/../icms-vue/src/views/login/LoginView.vue" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -18,17 +51,6 @@
       <list>
         <option value="Python Script" />
       </list>
-    </option>
-  </component>
-  <component name="FlaskConsoleOptions" custom-start-script="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))">
-    <envs>
-      <env key="FLASK_APP" value="app" />
-    </envs>
-    <option name="myCustomStartScript" value="import sys&#10;sys.path.extend([WORKING_DIR_AND_PYTHON_PATHS])&#10;from flask.cli import ScriptInfo&#10;locals().update(ScriptInfo(create_app=None).load_app().make_shell_context())&#10;print(&quot;Python %s on %s\nApp: %s [%s]\nInstance: %s&quot; % (sys.version, sys.platform, app.import_name, app.env, app.instance_path))" />
-    <option name="myEnvs">
-      <map>
-        <entry key="FLASK_APP" value="app" />
-      </map>
     </option>
   </component>
   <component name="Git.Settings">
@@ -48,13 +70,14 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "ASKED_MARK_IGNORED_FILES_AS_EXCLUDED": "true",
     "Django 服务器.icms-py.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.OpenDjangoStructureViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "hyx",
-    "last_opened_file_path": "D:/test.py/Face",
+    "git-widget-placeholder": "正在合并 hyx",
+    "last_opened_file_path": "D:/test.java/hmh0803/icms-py",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -99,7 +122,6 @@
       </set>
     </attachedChunks>
   </component>
-  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="默认任务">
       <changelist id="24a092df-71db-46c7-855c-f36683586a3d" name="更改" comment="" />
@@ -118,6 +140,8 @@
       <workItem from="1752108331790" duration="5247000" />
       <workItem from="1752127379429" duration="2377000" />
       <workItem from="1752131562817" duration="1955000" />
+      <workItem from="1752133539639" duration="2751000" />
+      <workItem from="1752139228074" duration="36000" />
     </task>
     <servers />
   </component>
