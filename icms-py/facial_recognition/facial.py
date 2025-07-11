@@ -28,8 +28,7 @@ latest_recognition_data = {
 }
 
 # --- FastAPI 应用实例 ---
-router = APIRouter(prefix=""
-                          "", tags=["facial"])
+router = APIRouter(prefix="/ai/facial", tags=["facial"])
 
 def process_frame_for_ai(frame: np.ndarray):
     """
