@@ -18,24 +18,23 @@ class CompareRequest(BaseModel):
 @router.post("/compare")
 async def compare_face(request: CompareRequest):
     """
-    接收来自后端的用户向量，与摄像头实时捕捉到的人脸进行比对和活体检测。
-    注意：此接口的请求和响应格式保持不变。
+    接收来自后端的用户向量，与摄像头实时捕捉到的人脸进行比对和活体检测
     """
     logger.info(f"收到用户 '{request.username}' 的人脸比对任务。")
 
     # 从 facial_service 获取最新的实时人脸数据
     realtime_result = await facial_service.get_latest_face_info()
 
-    # 使用新来源的数据进行验证
-    if not realtime_result:
+    # 是否检测到人脸或者保持不变
+    if not realtime_result or "vector_list" not in realtime_result:
         logger.warning(f"比对失败：用户'{request.username}'未正对摄像头或未检测到人脸。")
         raise HTTPException(
             status_code=400,
             detail="摄像头当前未检测到人脸，请正对摄像头后重试。"
         )
 
-    is_live_person = realtime_result.get("is_live", False)
-    if not is_live_person:
+    liveness_passed = realtime_result.get("liveness_passed", False)
+    if not liveness_passed:
         logger.warning(f"比对失败：用户'{request.username}'未通过活体检测。")
         raise HTTPException(
             status_code=403,

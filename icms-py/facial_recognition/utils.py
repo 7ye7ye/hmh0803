@@ -3,6 +3,7 @@ import logging
 import cv2
 import numpy as np
 from deepface import DeepFace
+import mediapipe as mp
 
 logger = logging.getLogger(__name__)
 
@@ -58,39 +59,57 @@ class FaceEncoder:
             return None
 
 
-class LivenessChecker:
-    """负责对指定的人脸区域进行活体检测。"""
+class AdvancedLivenessChecker:
+    def __init__(self, liveness_model_path: str):
+        logger.info("正在初始化标准的活体检测分类模型...")
+        self.liveness_model = cv2.dnn.readNetFromONNX(liveness_model_path)
+        logger.info("正在初始化 MediaPipe Face Mesh 用于姿态分析...")
+        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        logger.info("高级活体检测方案初始化完成。")
 
-    def __init__(self, prototxt_path: str, model_path: str):
-        logger.info("正在加载活体检测模型...")
-        self.liveness_net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
-        logger.info("活体检测模型加载成功。")
+    def _preprocess_liveness_input(self, face_crop: np.ndarray) -> np.ndarray:
+        resized_face = cv2.resize(face_crop, (128, 128))
+        blob = cv2.dnn.blobFromImage(resized_face, 1.0 / 255.0, (128, 128), mean=(0, 0, 0), swapRB=False, crop=False)
+        return blob
 
-    def check(self, frame: np.ndarray, region: dict) -> dict | None:
+    def check(self, frame: np.ndarray, face_region: dict) -> dict | None:
         """
-        在给定的区域进行活体检测。
-        返回: 一个包含布尔值和标签的字典，如果失败则返回 None。
+        对指定的人脸区域进行多维度活体检测。
+        返回: 包含模型分数和头部中心点位置的原始数据。
         """
         try:
-            x, y, w, h = region['x'], region['y'], region['w'], region['h']
-
-            # 基本的边界检查
-            if w <= 0 or h <= 0 or x < 0 or y < 0:
-                return None
-
+            # 1. 从原始帧中裁剪出人脸
+            x, y, w, h = face_region['x'], face_region['y'], face_region['w'], face_region['h']
             face_crop = frame[y:y + h, x:x + w]
+            if face_crop.size == 0: return None
 
-            if face_crop.size == 0:
-                return None
+            # 2. 模型检测
+            liveness_input_blob = self._preprocess_liveness_input(face_crop)
+            self.liveness_model.setInput(liveness_input_blob)
+            preds = self.liveness_model.forward()
+            model_confidence = preds[0][1] - preds[0][0]
 
-            blob = cv2.dnn.blobFromImage(face_crop, 1.0, (32, 32), (104.0, 177.0, 123.0))
-            self.liveness_net.setInput(blob)
-            preds = self.liveness_net.forward()
+            # 3. 头部中心点检测
+            # MediaPipe 需要 RGB 图像
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = self.face_mesh.process(rgb_frame)
 
-            is_live = preds[0][1] > preds[0][0]
-            label = "Live" if is_live else "Spoof"
+            face_center = None
+            if results.multi_face_landmarks:
+                # 使用鼻子尖端作为稳定的面部中心点 (landmark 1)
+                nose_tip = results.multi_face_landmarks[0].landmark[1]
+                face_center = (nose_tip.x, nose_tip.y)
 
-            return {"is_live": is_live, "label": label}
+            return {
+                "model_confidence": model_confidence,
+                "face_center": face_center
+            }
+
         except Exception as e:
-            logger.warning(f"活体检测失败: {e}")
+            logger.error(f"高级活体检测过程中发生错误: {e}", exc_info=True)
             return None
