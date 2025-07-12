@@ -2,198 +2,201 @@ import cv2
 import asyncio
 import logging
 import time
-from fastapi import FastAPI, APIRouter
+import os
+import numpy as np
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse, JSONResponse
 from deepface import DeepFace
-import numpy as np
-from typing import Dict, Any
-from core.state import app_state
+from .utils import FaceEncoder, LivenessChecker
 
-# 日志和配置
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# --- 配置 ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 VIDEO_STREAM_URL = "rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'opencv'
 
-# FastAPI 应用和路由
-router = APIRouter(prefix="/ai/facial", tags=["facial"])
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LIVENESS_MODEL_DIR = os.path.join(BASE_DIR, '..', 'models', 'liveness')
+PROTOTXT_PATH = os.path.join(LIVENESS_MODEL_DIR, 'deploy.prototxt')
+MODEL_PATH = os.path.join(LIVENESS_MODEL_DIR, 'liveness.model')
 
+# 存储识别的实时信息
+class FacialRecognitionService:
+    def __init__(self):
+        self.lock = asyncio.Lock()
 
-# AI面部处理后台任务
-async def ai_processing_task():
-    """
-    一个独立的后台协程，循环检查是否有新帧需要处理。
-    这使得AI处理不会阻塞视频流的推送。
-    """
-    logger.info("AI处理后台任务已启动...")
-    while True:
-        # 如果AI当前空闲，并且有新的视频帧可以处理
-        if not app_state.is_ai_processing and app_state.latest_frame is not None:
-            # 1. 加锁并标记AI为“处理中”
-            async with app_state.lock:
-                app_state.is_ai_processing = True
-                # 复制一份帧进行处理，避免后续的视频流修改它
-                frame_to_process = app_state.latest_frame.copy()
+        # 内部状态
+        self.latest_frame: np.ndarray | None = None
+        self.processed_frame: np.ndarray | None = None
+        self.latest_result: dict = {}  # 存储向量、区域、活体等信息
+        self.is_processing: bool = False  # 防止AI任务重叠
 
-            app_state.stats["ai_tasks_triggered"] += 1
-            logger.info(f"触发第 {app_state.stats['ai_tasks_triggered']} 次AI处理任务...")
+        # 初始化工具
+        self.encoder = FaceEncoder(model_name=MODEL_NAME, detector_backend=DETECTOR_BACKEND)
+        self.liveness_checker = LivenessChecker(prototxt_path=PROTOTXT_PATH, model_path=MODEL_PATH)
+
+        # 统计信息
+        self.stats = {
+            "fps": 0.0,
+            "last_detection_time": None,
+            "faces_detected_session": 0
+        }
+        self._fps_start_time = time.time()
+        self._fps_frame_count = 0
+
+    async def start_background_tasks(self):
+        """启动所有后台任务"""
+        logger.info("启动后台任务: 视频流读取和AI处理...")
+        asyncio.create_task(self._video_stream_loop())
+        asyncio.create_task(self._ai_processing_loop())
+
+    async def _video_stream_loop(self):
+        """后台循环：从视频源读取帧。"""
+        cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+        while True:
+            if not cap.isOpened():
+                logger.error(f"无法打开视频流: {VIDEO_STREAM_URL}，2秒后重试...")
+                await asyncio.sleep(2)
+                cap.release()
+                cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+                continue
+
+            ret, frame = cap.read()
+            if not ret:
+                logger.warning("无法读取视频帧，将尝试重新连接。")
+                cap.release()
+                continue
+
+            async with self.lock:
+                self.latest_frame = frame
+
+            # 更新FPS
+            self._fps_frame_count += 1
+            elapsed = time.time() - self._fps_start_time
+            if elapsed >= 1.0:
+                self.stats["fps"] = self._fps_frame_count / elapsed
+                self._fps_start_time = time.time()
+                self._fps_frame_count = 0
+
+            await asyncio.sleep(1 / 60)  # 稍微让出CPU
+
+    async def _ai_processing_loop(self):
+        """后台循环：处理最新帧，进行人脸识别和活体检测。"""
+        while True:
+            if self.is_processing or self.latest_frame is None:
+                await asyncio.sleep(0.05)
+                continue
 
             try:
-                # 2. 将同步的、阻塞的DeepFace调用放入一个独立的线程中执行 (至关重要)
-                # 这可以防止重量级的AI计算阻塞整个应用的事件循环
-                results = await asyncio.to_thread(
-                    DeepFace.represent,
-                    img_path=frame_to_process,
-                    model_name=MODEL_NAME,
-                    detector_backend=DETECTOR_BACKEND,
-                    enforce_detection=True  # 直接强制检测，未检测到会抛出ValueError
-                )
+                self.is_processing = True
 
-                # 3. 处理成功的结果
-                if results and len(results) > 0:
-                    face_info = results[0]
-                    vector = face_info['embedding']
-                    region = face_info['facial_area']  # DeepFace新版使用'facial_area'
+                async with self.lock:
+                    frame_to_process = self.latest_frame.copy()
 
-                    # 安全地更新全局状态
-                    async with app_state.lock:
-                        app_state.latest_vector = vector
-                        app_state.last_face_location = region
-                        app_state.stats["faces_detected"] += 1
-                        app_state.stats["last_detection_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                # 1. 提取人脸向量
+                face_data = await self.encoder.extract_vector(frame_to_process)
 
-                    logger.info(f"AI处理成功，检测到人脸，向量维度: {len(vector)}")
+                # 复制一份用于绘制，避免修改原始帧
+                display_frame = frame_to_process.copy()
 
-                    # 4. 在处理帧的副本上绘制结果，用于视频流显示
-                    cv2.rectangle(frame_to_process, (region['x'], region['y']),
-                                  (region['x'] + region['w'], region['y'] + region['h']), (0, 255, 0), 2)
-                    cv2.putText(frame_to_process, "Face Detected", (region['x'], region['y'] - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                    app_state.processed_frame = frame_to_process
+                if face_data:
+                    # 2. 如果检测到人脸，进行活体检测
+                    region = face_data['region']
+                    liveness_data = self.liveness_checker.check(frame_to_process, region)
 
-            except ValueError:
-                # DeepFace在enforce_detection=True且未检测到人脸时会抛出此异常
-                logger.info("AI处理完成，当前帧未检测到人脸。")
-                async with app_state.lock:
-                    # 可以选择清空上次的向量，或保留
-                    app_state.latest_vector = None
-                    app_state.last_face_location = None
-                # 当未检测到人脸时，我们可以让processed_frame显示原始图像
-                app_state.processed_frame = frame_to_process
+                    if liveness_data:
+                        # 合并所有结果
+                        current_result = {**face_data, **liveness_data, "timestamp": time.time()}
+
+                        # 绘制结果到显示帧上
+                        (x, y, w, h) = (region['x'], region['y'], region['w'], region['h'])
+                        label_color = (0, 255, 0) if liveness_data['is_live'] else (0, 0, 255)
+                        cv2.rectangle(display_frame, (x, y), (x + w, y + h), label_color, 2)
+                        cv2.putText(display_frame, liveness_data['label'], (x, y - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, label_color, 2)
+
+                        # 更新最新结果和统计数据
+                        async with self.lock:
+                            self.latest_result = current_result
+                            self.stats["last_detection_time"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                            self.stats["faces_detected_session"] += 1
+                else:
+                    # 未检测到人脸，清空旧结果
+                    async with self.lock:
+                        self.latest_result = {}
+
+                # 更新用于视频流的已处理帧
+                async with self.lock:
+                    self.processed_frame = display_frame
 
             except Exception as e:
-                logger.error(f"AI处理任务发生严重错误: {e}")
-                app_state.stats["error_count"] += 1
-
+                logger.error(f"AI处理循环中发生错误: {e}", exc_info=True)
             finally:
-                # 5. 无论成功与否，都要释放锁，标记AI为空闲
-                async with app_state.lock:
-                    app_state.is_ai_processing = False
+                self.is_processing = False
+                await asyncio.sleep(0.1)  # 每次处理后稍作休息
 
-        # 无论是否处理，都短暂休眠，避免空转消耗CPU
-        await asyncio.sleep(0.05)  # 休眠50毫秒
+    async def get_video_stream(self):
+        """生成用于web前端的视频流。"""
+        while True:
+            async with self.lock:
+                # 优先使用处理过的帧，如果不存在（例如刚启动时），则使用原始帧
+                frame = self.processed_frame if self.processed_frame is not None else self.latest_frame
 
+            if frame is None:
+                # 等待第一帧
+                await asyncio.sleep(0.1)
+                continue
 
-# 视频流生成器
-async def video_stream_generator():
-    """
-    视频流生成器，现在只负责从视频源读取帧，并推送最新的“已处理帧”。
-    """
-    cap = cv2.VideoCapture(VIDEO_STREAM_URL)
-    if not cap.isOpened():
-        logger.error(f"无法打开视频流: {VIDEO_STREAM_URL}")
-        return
+            # 在帧上绘制FPS
+            cv2.putText(frame, f"FPS: {self.stats['fps']:.1f}", (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-    logger.info("视频流连接成功，开始推流...")
+            flag, encoded_image = cv2.imencode(".jpg", frame)
+            if not flag:
+                continue
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            logger.warning("视频帧读取失败，尝试重连...")
-            cap.release()
-            await asyncio.sleep(2)
-            cap = cv2.VideoCapture(VIDEO_STREAM_URL)
-            if not cap.isOpened():
-                logger.error("重连失败，终止推流。")
-                break
-            continue
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
-        # 1. 安全地更新全局的最新原始帧
-        async with app_state.lock:
-            app_state.latest_frame = frame
-            app_state.stats["total_frames_streamed"] += 1
+            await asyncio.sleep(1 / 60)
 
-        # 2. 决定要显示的帧 (核心逻辑)
-        # 如果有处理过的帧，就用它；否则用原始帧
-        display_frame = app_state.processed_frame if app_state.processed_frame is not None else frame
-
-        # 3. 计算并更新FPS
-        stats = app_state.stats["fps_report"]
-        stats["frame_count"] += 1
-        elapsed_time = time.time() - stats["start_time"]
-        if elapsed_time >= 1.0:  # 每秒更新一次FPS
-            stats["fps"] = stats["frame_count"] / elapsed_time
-            # logger.info(f"Streaming FPS: {stats['fps']:.1f}")
-            stats["start_time"] = time.time()
-            stats["frame_count"] = 0
-
-        # 在要显示的帧上绘制FPS信息
-        cv2.putText(display_frame, f"FPS: {stats['fps']:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255),
-                    2)
-
-        # 4. 编码并推送
-        (flag, encodedImage) = cv2.imencode(".jpg", display_frame)
-        if not flag:
-            continue
-
-        yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encodedImage) + b'\r\n')
-
-        # 稍微等待，让出CPU给其他任务，这个值可以根据流的流畅度微调
-        await asyncio.sleep(1 / 60)  # 尝试匹配60fps的推送速率
+    async def get_latest_face_info(self):
+        """安全地获取最新的面部信息"""
+        async with self.lock:
+            return self.latest_result.copy()
 
 
-# FastAPI应用生命周期
+# --- FastAPI 路由 ---
+router = APIRouter(prefix="/ai/facial", tags=["facial"])
+
+# 在应用启动时，创建 FacialRecognitionService 的实例，共享
+facial_service = FacialRecognitionService()
+
+
 @router.on_event("startup")
 async def startup_event():
-    """应用启动时，创建并启动后台AI任务"""
-    logger.info("应用启动，创建AI后台任务...")
-    # asyncio.create_task 在后台“点燃”一个协程，让它独立运行
-    asyncio.create_task(ai_processing_task())
-
-
-# API 路由定义
-@router.get("/")
-def read_root():
-    return {"message": "人脸识别AI服务", "docs": "/docs"}
+    """应用启动时，启动后台服务任务"""
+    await facial_service.start_background_tasks()
 
 
 @router.get("/video_feed")
 async def video_feed():
-    return StreamingResponse(video_stream_generator(), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(facial_service.get_video_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 
 @router.get("/get_latest_vector")
 async def get_latest_vector():
-    if app_state.latest_vector:
+    result = await facial_service.get_latest_face_info()
+    if result and result.get("vector_str"):
         return JSONResponse(content={
             "status": "success",
             "model": MODEL_NAME,
             "data": {
-                "vector": app_state.latest_vector,
-                "face_location": app_state.last_face_location
+                "vector": result["vector_str"],
+                "face_location": result["region"]
             }
         })
     else:
         return JSONResponse(status_code=404, content={"status": "error", "message": "暂无可用的人脸特征向量。"})
-
-
-@router.get("/get_stats")
-async def get_stats():
-    return JSONResponse(content={"status": "success", "data": app_state.stats})
-
-
-# 主应用引入路由
-# app = FastAPI(title="实时人脸识别AI服务")
-# app.include_router(router)
