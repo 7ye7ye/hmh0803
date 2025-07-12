@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 
 class FaceEncoder:
     """负责从图像帧中提取人脸特征向量。"""
-
     def __init__(self, model_name: str, detector_backend: str):
         self.model_name = model_name
         self.detector_backend = detector_backend
@@ -68,7 +67,7 @@ class AdvancedLivenessChecker:
             max_num_faces=1,
             refine_landmarks=True,
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.4
         )
         logger.info("高级活体检测方案初始化完成。")
 
@@ -85,25 +84,41 @@ class AdvancedLivenessChecker:
         try:
             # 1. 从原始帧中裁剪出人脸
             x, y, w, h = face_region['x'], face_region['y'], face_region['w'], face_region['h']
-            face_crop = frame[y:y + h, x:x + w]
-            if face_crop.size == 0: return None
 
-            # 2. 模型检测
+            # 安全性检查，防止 face_region 坐标超出图像边界
+            if x < 0 or y < 0 or x + w > frame.shape[1] or y + h > frame.shape[0]:
+                logger.warning("提供的 face_region 超出图像边界，跳过本次检测。")
+                return None
+
+            face_crop = frame[y:y + h, x:x + w]
+            if face_crop.size == 0:
+                return None
+
+            # 2. 模型检测 (这部分逻辑不变)
             liveness_input_blob = self._preprocess_liveness_input(face_crop)
             self.liveness_model.setInput(liveness_input_blob)
             preds = self.liveness_model.forward()
             model_confidence = preds[0][1] - preds[0][0]
 
-            # 3. 头部中心点检测
-            # MediaPipe 需要 RGB 图像
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = self.face_mesh.process(rgb_frame)
+            # 3. 头部中心点检测 (只在小的人脸切片上运行，效率更高)
+            rgb_face_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
+            results = self.face_mesh.process(rgb_face_crop)
 
             face_center = None
             if results.multi_face_landmarks:
+                # 获取在 face_crop 内的 landmark
+                face_landmarks = results.multi_face_landmarks[0].landmark
                 # 使用鼻子尖端作为稳定的面部中心点 (landmark 1)
-                nose_tip = results.multi_face_landmarks[0].landmark[1]
-                face_center = (nose_tip.x, nose_tip.y)
+                nose_tip = face_landmarks[1]
+
+                # 将 face_crop 内的相对坐标，转换回 frame 内的绝对像素坐标
+                h_crop, w_crop, _ = face_crop.shape
+                abs_nose_x = x + (nose_tip.x * w_crop)
+                abs_nose_y = y + (nose_tip.y * h_crop)
+
+                # 最后，将绝对像素坐标转换回相对于整个 frame 的归一化坐标，用于位移计算
+                h_frame, w_frame, _ = frame.shape
+                face_center = (abs_nose_x / w_frame, abs_nose_y / h_frame)
 
             return {
                 "model_confidence": model_confidence,
