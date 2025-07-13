@@ -34,7 +34,6 @@
 import { useRouter } from 'vue-router'
 import {TeamOutlined, DeploymentUnitOutlined, CarOutlined } from '@ant-design/icons-vue'
 import { useMenuStore } from '@/store/useMenuStore'
-import { testApi } from '@/api/test'
 
 const router = useRouter()
 const menuStore = useMenuStore()
@@ -47,11 +46,6 @@ const navigate = (routeName) => {
   menuStore.setCurrentMenu(routeName)
 }
 
-const reverse = () => {
-  testApi.reverse().then(res => {
-    console.log(res)
-  })
-}
 </script>
   
   <style scoped>
