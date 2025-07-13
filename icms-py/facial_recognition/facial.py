@@ -32,10 +32,11 @@ class FacialRecognitionService:
         self.liveness_state = "CHECKING"
         self.vector_extracted = False
         self.is_processing: bool = False
-        self.liveness_history = deque(maxlen=10)
+        # 此处设置活体检测的次数，暂时为1
+        self.liveness_history = deque(maxlen=1)
         self.position_history = deque(maxlen=5)
         self.MODEL_CONFIDENCE_THRESHOLD = 0.7
-        self.STABLE_FRAME_REQUIREMENT = 6
+        self.STABLE_FRAME_REQUIREMENT = 3
         self.MOVEMENT_THRESHOLD = 0.0008
 
         # # 性能优化相关
