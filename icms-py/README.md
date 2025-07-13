@@ -15,3 +15,19 @@ cd test
 
 使用pip install -r requirements.txt 安装目前所需的所有依赖
 
+uvicorn pullStream:app --reload
+
+deepface包下载在py3.11虚拟环境中下载
+
+pip install deepface==0.0.93 "tensorflow~=2.19.0"
+
+运行报错试一下
+
+pip install tf-keras
+
+登录的人脸识别逻辑 先安装
+pip install fastapi uvicorn requests numpy scipy
+
+拉推流地址：rtmp://120.46.210.148:1935/live/livestream
+
+uvicorn main:app --reload

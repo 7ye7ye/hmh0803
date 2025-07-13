@@ -14,9 +14,9 @@ const request = axios.create({
 
 // 用户相关的 api 接口
 export const aiApi = {
-    // 人脸识别
+    //获取实时人脸向量
     start_facial_recognition(){
         return request.get('ai/facial/get_latest_vector');
-    }
-
+    },
+   
 }

@@ -4,6 +4,10 @@ import com.yeye.icmsjava.model.User;
 import com.yeye.icmsjava.model.request.UserLoginRequest;
 import com.yeye.icmsjava.model.request.UserRegisterRequest;
 import com.yeye.icmsjava.service.UserService;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,18 +18,45 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.apache.commons.lang3.StringUtils;
 
+import com.yeye.icmsjava.model.User;
+import com.yeye.icmsjava.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.*;
+
 import java.util.HashMap;
 
 import static com.yeye.icmsjava.contant.UserConstant.USER_LOGIN_STATE;
 
 @RestController
 @RequestMapping("/user")
+@Tag(name = "用户管理接口", description = "提供用户注册、登录、获取当前用户、退出登录等功能接口")
 public class UserController {
     @Resource
     private UserService userService;
 
     @PostMapping("/register")
-    public int userRegister(@RequestBody UserRegisterRequest userRegisterRequest) {
+    @Operation(summary = "用户注册接口", description = "接收用户注册信息，完成用户注册操作，返回注册结果状态码")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "注册结果，1 表示成功，0 表示失败",
+                    content = @Content(schema = @Schema(type = "integer", example = "1"))),
+            @ApiResponse(responseCode = "400", description = "请求体为空或参数不合法",
+                    content = @Content(schema = @Schema(type = "string", example = "请求体不能为空")))
+    })
+    public int userRegister(
+            @RequestBody
+            @Parameter(
+                    name = "userRegisterRequest",
+                    description = "注册信息（用户名、密码、确认密码）",
+                    content = @Content(
+                            schema = @Schema(
+                                    implementation = UserRegisterRequest.class,
+                                    example = "{\"username\":\"test_user\", \"password\":\"123456\", \"checkPassword\":\"123456\"}"
+                            )
+                    )
+            )
+            UserRegisterRequest userRegisterRequest) {
         if(userRegisterRequest==null){
             return 0;
         }
@@ -41,6 +72,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "用户登录接口", description = "接收用户登录信息，验证通过后返回用户信息，登录失败返回对应提示")
     public ResponseEntity<?> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (userLoginRequest == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("请求体不能为空");
@@ -69,6 +101,7 @@ public class UserController {
 
     //USER_LOGIN_STATE还有问题
     @GetMapping("/current")
+    @Operation(summary = "获取当前用户接口", description = "从会话中获取当前登录用户的用户名并返回")
     public String getCurrentUser(HttpServletRequest request) {
         Object userObj=null;
         try {
@@ -87,6 +120,7 @@ public class UserController {
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "用户退出登录接口", description = "使当前用户会话失效，清除相关 Cookie，完成退出操作")
     public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) {
         try {
             // 获取当前会话

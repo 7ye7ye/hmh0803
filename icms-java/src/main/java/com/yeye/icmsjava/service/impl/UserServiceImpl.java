@@ -3,13 +3,18 @@ package com.yeye.icmsjava.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yeye.icmsjava.model.User;
+import com.yeye.icmsjava.model.request.FacialCompareRequest;
 import com.yeye.icmsjava.service.UserService;
 import com.yeye.icmsjava.mapper.UserMapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.client.RestClientException;
+import com.yeye.icmsjava.contant.URLContant;
+import org.springframework.web.client.RestTemplate;
 
 /**
 * @author Administrator
@@ -21,7 +26,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     implements UserService{
         @Resource
         private UserMapper userMapper;//注入userMapper
-        /**
+        private final RestTemplate restTemplate;
+
+        @Autowired
+        public UserServiceImpl(RestTemplate restTemplate) {
+            this.restTemplate = restTemplate;
+        }
+    /**
          * 盐值：混淆密码
          */
         private static final String SALT="caoyue";
@@ -30,7 +41,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
          */
         private static final String USER_LOGIN_STATE="user_login_state";
 
-        @Override
+    @Override
         public int userRegister(String username, String password, String checkPassword,String faceEmbedding) {
             //一，校验
             //1.非空
@@ -103,29 +114,55 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 //     二，加密,因为数据库里存的也是加密后的密码
         String newPassword=DigestUtils.md5DigestAsHex((SALT+password).getBytes());
 
-            //三，查询用户是否存在
+            // --- 第一步: 验证用户名和密码 ---
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("username", username);
-            queryWrapper.eq("password", password);
-            //如何验证人脸？
-            queryWrapper.eq("faceEmbedding", faceEmbedding);
-            User user=userMapper.selectOne(queryWrapper);
-            System.out.println(user);
-            //用户不存在
-            if(user==null){
-                System.out.println("4");                                                 
+            queryWrapper.eq("password", newPassword); // 注意：实际项目中密码应加密存储和比对
+
+            User user = userMapper.selectOne(queryWrapper);
+
+            // 如果用户不存在或密码错误，直接返回登录失败
+            if (user == null) {
+                System.out.println("登录失败：用户名或密码不正确。");
                 return null;
             }
 
-            //四，用户脱敏:只返回需要显示的数据，防止数据库的数据暴露给前端
-            User saftyUser=getSaftyUser(user);
-            //五，记录用户的登录态
-            request.getSession().setAttribute(USER_LOGIN_STATE,user);
-            System.out.println("Backend recorded login user data: " + saftyUser);
+            // --- 第二步: 调用Python服务进行人脸比对 ---
+            // 从数据库获取该用户预存的人脸特征向量
+            // 假设您的User实体类中有 getFaceEmbedding() 方法
+            String storedFaceEmbedding = user.getFaceEmbedding();
+            if (storedFaceEmbedding == null || storedFaceEmbedding.isEmpty()) {
+                System.out.println("登录失败：用户未注册人脸信息。");
+                return null;
+            }
 
-            System.out.println("Session ID (save): " + request.getSession().getId());
+            try {
+                // 发送POST请求到Python服务，并获取比对结果
+                // 假设后端接口直接返回 true 或 false
+                FacialCompareRequest  response= restTemplate.postForObject(URLContant.FACE_COMPARE_URL, user, FacialCompareRequest.class);
+                System.out.println("response:"+response);
 
-            return saftyUser;
+                if (response.getVerified()) {
+                    System.out.println("人脸比对成功，登录成功！" );
+                    //四，用户脱敏:只返回需要显示的数据，防止数据库的数据暴露给前端
+                    User saftyUser=getSaftyUser(user);
+                    //五，记录用户的登录态
+                    request.getSession().setAttribute(USER_LOGIN_STATE,user);
+                    System.out.println("Backend recorded login user data: " + saftyUser);
+
+                    System.out.println("Session ID (save): " + request.getSession().getId());
+
+                    return saftyUser;
+                } else {
+                    System.out.println("人脸比对失败，登录失败。");
+                    return null;
+                }
+            } catch (RestClientException e) {
+                // 处理网络异常或Python服务不可用的情况
+                System.err.println("调用人脸比对服务失败: " + e.getMessage());
+                return null;
+            }
+
         }
 
         /**

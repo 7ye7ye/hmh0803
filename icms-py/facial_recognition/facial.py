@@ -1,215 +1,323 @@
 import cv2
 import asyncio
-from fastapi import FastAPI,APIRouter
-from fastapi.responses import StreamingResponse,JSONResponse
-from deepface import DeepFace
-
-from typing import Optional, List
-
+import logging
+import time
+import os
 import numpy as np
+from collections import deque
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse, JSONResponse
+from deepface import DeepFace
+from .utils import FaceEncoder, AdvancedLivenessChecker
 
-# --- 配置 ---
-# 视频流源地址
-# 注意：请确保这个地址在你运行代码时是可访问的。
-# 如果该流不稳定或失效，你需要替换成一个有效的视频流地址。
-# 例如一个本地摄像头：0，或者一个RTSP流： "rtsp://..."
-VIDEO_STREAM_URL = "rtmp://120.46.210.148:1935/live/livestream"
+# 设置日志记录的基本配置，方便调试
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# DeepFace 模型配置
+# 定义视频流地址、人脸识别模型等常量
+VIDEO_STREAM_URL ="rtmp://121.36.44.77:1935/live/livestream"
 MODEL_NAME = "Facenet512"
-DETECTOR_BACKEND = 'opencv'
+DETECTOR_BACKEND = 'mtcnn'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LIVENESS_MODEL_PATH = os.path.join(BASE_DIR, '..', 'models', 'liveness_official', 'anti_spoof_predict.onnx')
 
-# --- 全局状态管理 ---
-# 使用一个简单的字典来存储最新的识别结果
-# 在生产环境中，推荐使用更健壮的状态管理方式，如 Redis
-latest_recognition_data = {
-    "vector": None,
-    "location": None
-}
+class FacialRecognitionService:
+    def __init__(self):
+        self.lock = asyncio.Lock()
+        self.latest_frame: np.ndarray | None = None
+        self.processed_frame: np.ndarray | None = None
+        self.latest_result: dict = {}
 
-# --- FastAPI 应用实例 ---
-router = APIRouter(prefix="/ai/facial", tags=["facial"])
+        #活体检测相关状态
+        self.liveness_state = "CHECKING"
+        self.vector_extracted = False
+        self.is_processing: bool = False
+        self.liveness_history = deque(maxlen=10)
+        self.position_history = deque(maxlen=5)
+        self.MODEL_CONFIDENCE_THRESHOLD = 0.7
+        self.STABLE_FRAME_REQUIREMENT = 6
+        self.MOVEMENT_THRESHOLD = 0.0008
 
-def process_frame_for_ai(frame: np.ndarray):
-    """
-       对单帧图像进行AI处理的函数。
-       此函数现在使用 DeepFace 进行人脸检测和向量提取。
+        # # 性能优化相关
+        # self.last_process_time = 0
+        # self.process_interval = 0.1   #每100ms处理一次，不是每帧都处理
+        # self.skip_frames = 0
+        # self.max_skip_frames = 3   #最多跳过三帧
 
-       :param frame: 从视频流中捕获的一帧图像 (NumPy array)
-       :return: 处理后的图像 (NumPy array)
-       """
-    # 获取图像的高度和宽度
-    h, w, _ = frame.shape
 
-    # 在图像中心画一个绿色的矩形框
-    # 参数: (图像, 左上角坐标, 右下角坐标, 颜色 BGR, 线条宽度)
-    cv2.rectangle(frame, (w // 4, h // 4), (w * 3 // 4, h * 3 // 4), (0, 255, 0), 2)
+        # 初始化组件
+        self.encoder = FaceEncoder(model_name=MODEL_NAME, detector_backend=DETECTOR_BACKEND)
+        self.liveness_checker = AdvancedLivenessChecker(liveness_model_path=LIVENESS_MODEL_PATH)
 
-    # 在图像上添加文字
-    # 参数: (图像, 文字内容, 起始坐标, 字体, 字体大小, 颜色 BGR, 字体粗细)
-    cv2.putText(frame, "AI Processing...", (w // 4, h // 4 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        self.stats = {"fps": 0.0,"process_fps":0.0}  # 简化后的统计信息，只关心最终输出的FPS
 
-    global latest_recognition_data
+    async def start_background_tasks(self):
+        logger.info("启动后台任务: 视频流读取和AI处理...")
+        asyncio.create_task(self._video_stream_loop())
+        asyncio.create_task(self._ai_processing_loop())
 
-    try:
-        # 1. 使用 DeepFace.analyze 快速检测人脸位置
-        # 'actions=['age']' 是一个触发检测的轻量级动作
-        face_objects = DeepFace.analyze(
-            img_path=frame,
-            actions=['age'],
-            enforce_detection=False,
-            detector_backend=DETECTOR_BACKEND
+    # 视频流读取循环
+    async def _video_stream_loop(self):
+        cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+
+        while True:
+            if not cap.isOpened():
+                logger.error(f"无法打开视频流: {VIDEO_STREAM_URL}，2秒后重试...")
+                await asyncio.sleep(2)
+                cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+                continue
+            ret, frame = cap.read()
+            if not ret:
+                logger.warning("无法读取视频帧，可能流已中断，尝试重连...")
+                cap.release()
+                await asyncio.sleep(2)
+                cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
+                continue
+            async with self.lock:
+                self.latest_frame = frame
+            await asyncio.sleep(1 / 60)  # 保持高读取率，让AI循环自己决定处理频率
+
+    def reset_state(self):
+        self.liveness_state = "CHECKING"
+        self.vector_extracted = False
+        self.liveness_history.clear()
+        self.position_history.clear()
+        self.latest_result = {}
+        logger.debug("认证状态已重置。")
+
+    # 根据单帧的检测结果来更新整个认证状态。
+    def _update_liveness_state(self, liveness_data: dict | None, region: dict, frame_shape: tuple):
+        # 默认当前帧不是活体
+        current_frame_is_live = False
+
+        # --- 默认值和初始化 ---
+        model_ok = False
+        movement_ok = False
+        movement = 0.0
+        model_score = -99.0  # 一个无效的分数
+
+        # --- 计算当前帧的人脸中心点 ---
+        h_frame, w_frame, _ = frame_shape
+        cx = region.get('x', 0) + region.get('w', 0) / 2
+        cy = region.get('y', 0) + region.get('h', 0) / 2
+        face_center = (cx / w_frame, cy / h_frame)
+        self.position_history.append(face_center)  # 无论如何都先存入位置
+
+        # --- 开始判断 ---
+        if liveness_data:
+            model_score = liveness_data['model_confidence']
+            # 条件1: AI模型的置信度是否足够高
+            model_ok = model_score > self.MODEL_CONFIDENCE_THRESHOLD
+
+        # 条件2: 只有在队列中有足够多的点时才开始计算位移
+        # 这是为了给位移计算一个“热身”时间，避免一开始就因位移为0而失败
+        if len(self.position_history) > 1:
+            p1 = self.position_history[-1]
+            p2 = self.position_history[-2]
+            if p1 and p2:
+                dx = p1[0] - p2[0]
+                dy = p1[1] - p2[1]
+                movement = (dx ** 2 + dy ** 2) ** 0.5
+                movement_ok = movement > self.MOVEMENT_THRESHOLD
+
+        # 最终判定当前帧是否为“活体”
+        current_frame_is_live = model_ok and movement_ok
+
+        # --- 打印调试日志 ---
+        logger.info(
+            f"Liveness Check: "
+            f"Model OK? {model_ok} (Score: {model_score:.4f} > {self.MODEL_CONFIDENCE_THRESHOLD}), "
+            f"Movement OK? {movement_ok} (Move: {movement:.6f} > {self.MOVEMENT_THRESHOLD}), "
+            f"--> Current Frame Live: {current_frame_is_live}"
         )
 
-        # 检查是否检测到人脸 (DeepFace返回一个列表，每个元素代表一张脸)
-        if face_objects and isinstance(face_objects, list) and len(face_objects) > 0:
-            # 只处理检测到的第一张人脸
-            face_info = face_objects[0]
-            region = face_info['region']  # {'x': int, 'y': int, 'w': int, 'h': int}
+        # --- 更新历史记录和状态 ---
+        if not current_frame_is_live:
+            # 如果判定失败，只清空 liveness_history，让 position_history 继续累积
+            # 这样即使用户中途静止了一下，也不会完全重置位移检测
+            self.liveness_history.clear()
 
-            # 2. 截取人脸区域，以提高向量提取的效率
-            face_img = frame[region['y']:region['y'] + region['h'], region['x']:region['x'] + region['w']]
+        self.liveness_history.append(current_frame_is_live)
 
-            # 确保截取的人脸图像不为空
-            if face_img.size > 0:
-                # 3. 使用 DeepFace.represent 提取特征向量
-                embedding_objs = DeepFace.represent(
-                    img_path=face_img,
-                    model_name=MODEL_NAME,
-                    enforce_detection=False,  # 因为已截取人脸，此处设为False
-                    detector_backend=DETECTOR_BACKEND
+        progress = sum(self.liveness_history)
+        if progress > 0 or not current_frame_is_live:
+            logger.info(f"Liveness Progress: {progress}/{self.STABLE_FRAME_REQUIREMENT}")
+
+        if len(self.liveness_history) == self.liveness_history.maxlen and all(self.liveness_history):
+            if self.liveness_state != "PASSED":
+                logger.info("✅ Liveness Passed!")
+            self.liveness_state = "PASSED"
+        else:
+            if self.liveness_state == "PASSED":
+                self.reset_state()
+            self.liveness_state = "CHECKING"
+
+    async def _ai_processing_loop(self):
+        process_start_time = time.time()
+        process_count = 0
+
+        while True:
+            frame_to_process = None
+            async with self.lock:
+                if self.latest_frame is None:
+                    await asyncio.sleep(0.02)
+                    continue
+                frame_to_process = self.latest_frame.copy()
+
+            display_frame = frame_to_process.copy()
+
+            try:
+                # 步骤 1: 使用快速的人脸检测器，而不是完整的 represent
+                # DeepFace.extract_faces 只做检测和裁剪，速度快得多
+                detected_faces = await asyncio.to_thread(
+                    DeepFace.extract_faces,
+                    img_path=frame_to_process,
+                    detector_backend=DETECTOR_BACKEND,
+                    enforce_detection=False  # 未检测到脸时返回空列表
                 )
 
-                if embedding_objs and len(embedding_objs) > 0:
-                    # 4. 提取向量并更新全局状态
-                    face_vector = embedding_objs[0]['embedding']
-                    latest_recognition_data["vector"] = face_vector
-                    latest_recognition_data["location"] = region
-                    print(f"成功更新人脸向量，维度: {len(face_vector)}")
+                if detected_faces:
+                    main_face = detected_faces[0]  # 只处理最大的人脸
+                    region = main_face['facial_area']
 
-            # 5. 在原始帧上绘制矩形框和提示文字
-            cv2.rectangle(frame, (region['x'], region['y']), (region['x'] + region['w'], region['y'] + region['h']),
-                          (0, 255, 0), 2)
-            cv2.putText(frame, "Face Vector Extracted", (region['x'], region['y'] - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                    # 步骤 2: 只要还没提取向量，就持续进行活体检测
+                    if not self.vector_extracted:
+                        liveness_data = self.liveness_checker.check(frame_to_process, region)
+                        self._update_liveness_state(liveness_data,region,frame_to_process.shape)
 
-    except Exception as e:
-        # 如果处理过程中发生任何错误，打印出来但保持程序运行
-        print(f"AI处理时发生错误: {e}")
+                    # 步骤 3: 如果活体检测通过 且 尚未提取向量，则执行一次性慢速操作
+                    if self.liveness_state == "PASSED" and not self.vector_extracted:
+                        logger.info("活体检测通过，正在提取特征向量...")
+                        # 在人脸切片上提取特征，而不是全图，效率更高
+                        face_crop = main_face['face']
 
-        # 无论是否检测到人脸，都返回（可能被修改过的）帧
-        return frame
+                        face_data = await self.encoder.extract_vector(face_crop)
 
-async def video_stream_generator():
-    """
-    视频流生成器，它会持续从源地址读取帧，处理后以JPEG格式yield出去。
-    """
-    # 使用OpenCV打开视频流
-    cap = cv2.VideoCapture(VIDEO_STREAM_URL)
+                        if face_data:
+                            logger.info("特征向量提取成功！")
+                            async with self.lock:
+                                self.latest_result = face_data
+                                self.latest_result["liveness_passed"] = True
+                            self.vector_extracted = True  # 标记为已提取，不再重复此操作
+                        else:
+                            logger.warning("活体通过了，但特征提取失败，重置状态。")
+                            self.reset_state()
 
-    # 检查视频流是否成功打开
-    if not cap.isOpened():
-        print(f"错误: 无法打开视频流 {VIDEO_STREAM_URL}")
-        # 如果无法打开，可以yield一张错误提示图片
-        # (此处为了简化，我们直接返回)
-        return
+                    # 步骤 4: 绘制可视化界面
+                    self._draw_visualization(display_frame, region)
 
-    print("视频流已成功打开，开始逐帧处理...")
-    try:
-        frame_counter = 0  # 增加一个帧计数器用于性能优化
+                else:  # 如果未检测到人脸
+                    self.reset_state()
+                    cv2.putText(display_frame, "No Face Detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255),
+                                2)
+
+                # 更新统计信息
+                process_count += 1
+                elapsed = time.time() - process_start_time
+                if elapsed >= 1.0:
+                    self.stats['process_fps'] = process_count / elapsed
+                    process_start_time = time.time()
+                    process_count = 0
+
+                # 更新用于推流的帧
+                async with self.lock:
+                    self.processed_frame = display_frame
+
+            except Exception as e:
+                logger.error(f"AI处理循环中发生错误: {e}", exc_info=True)
+
+            await asyncio.sleep(0.033)  # 约等于30FPS的处理频率
+
+    def _draw_visualization(self, frame: np.ndarray, region: dict):
+        label_color = (0, 0, 255)  # 默认红色
+        status_text = "Checking Liveness..."
+        if self.liveness_state == "PASSED":
+            label_color = (0, 255, 0)  # 绿色
+            status_text = "Liveness Passed"
+            if self.vector_extracted:
+                status_text = "Verification Ready"
+
+        x, y, w, h = region['x'], region['y'], region['w'], region['h']
+        cv2.rectangle(frame, (x, y), (x + w, y + h), label_color, 2)
+        cv2.putText(frame, status_text, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, label_color, 2)
+
+        progress = sum(self.liveness_history) / self.STABLE_FRAME_REQUIREMENT
+        cv2.rectangle(frame, (x, y + h + 5), (x + w, y + h + 15), (100, 100, 100), -1)
+        if progress > 0:
+            cv2.rectangle(frame, (x, y + h + 5), (int(x + w * progress), y + h + 15), (0, 255, 0), -1)
+
+    # 获取视频流
+    async def get_video_stream(self):
+        fps_start_time = time.time()
+        fps_frame_count = 0
         while True:
-            # 读取一帧
-            ret, frame = cap.read()
+            display_frame = None
+            async with self.lock:
+                # 优先使用处理过的帧，如果不存在（例如刚启动时），则使用原始帧
+                display_frame = self.processed_frame if self.processed_frame is not None else self.latest_frame
 
-            # 如果ret为False，说明读取失败或视频流已结束
-            if not ret:
-                print("无法读取视频帧，可能视频流已结束或中断。")
-                # 等待一小段时间后尝试重连
-                await asyncio.sleep(2)
-                cap.release()  # 释放旧的捕获对象
-                cap = cv2.VideoCapture(VIDEO_STREAM_URL)  # 尝试重新连接
-                if not cap.isOpened():
-                    print("重连失败，终止推流。")
-                    break
+            if display_frame is None:
+                await asyncio.sleep(0.1)
                 continue
 
-            frame_counter += 1
-            # --- 在这里进行AI处理 ---
-            # 性能优化：每隔3帧才进行一次AI处理
-            if frame_counter % 3 == 0:
-                # --- 在这里进行AI处理 ---
-                processed_frame = process_frame_for_ai(frame)
-            else:
-                # 其他帧直接返回，不进行AI处理
-                processed_frame = frame
+            fps_frame_count += 1
+            elapsed_time = time.time() - fps_start_time
+            if elapsed_time >= 1.0:
+                self.stats['fps'] = fps_frame_count / elapsed_time
+                fps_start_time = time.time()
+                fps_frame_count = 0
 
-            # 将处理后的帧编码为JPEG格式
-            # imencode返回一个元组 (retval, buffer)，我们取第二个元素
-            (flag, encodedImage) = cv2.imencode(".jpg", processed_frame)
+            # 在帧上绘制FPS信息
+            cv2.putText(display_frame, f"Display FPS: {self.stats['fps']:.1f}",
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            cv2.putText(display_frame, f"Process FPS: {self.stats['process_fps']:.1f}",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-            # 如果编码失败，跳过这一帧
+            # 将图像帧编码为JPEG格式
+            flag, encoded_image = cv2.imencode(".jpg", display_frame,
+                                               [cv2.IMWRITE_JPEG_QUALITY, 80])
             if not flag:
                 continue
 
-            # 将JPEG数据转换为字节流，并按照MJPEG格式进行封装
-            # MJPEG格式要求在每帧数据前加上特定的头部
-            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' +
-                   bytearray(encodedImage) + b'\r\n')
+            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(encoded_image) + b'\r\n')
 
-            # 稍微等待，避免CPU占用过高，也给其他异步任务执行机会
-            await asyncio.sleep(0.01)
-
-    finally:
-        # 确保在结束时释放资源
-        print("释放视频捕获资源。")
-        cap.release()
+            await asyncio.sleep(1 / 25)
 
 
-@router.get("/")
-def read_root():
-    return {
-        "message": "欢迎使用视频处理API", "stream_url": "/video_feed",
-        "stream_url":"/video_feed",
-        "vector_api":"/get_lastest_vector"
-    }
+    async def get_latest_face_info(self):
+        async with self.lock:
+            return self.latest_result.copy()
+
+
+
+router = APIRouter(prefix="/ai/facial", tags=["facial"])
+facial_service = FacialRecognitionService()
+
+
+@router.on_event("startup")
+async def startup_event():
+    await facial_service.start_background_tasks()
 
 
 @router.get("/video_feed")
 async def video_feed():
-    """
-    视频流传输接口。
-    它会返回一个StreamingResponse，内容由video_stream_generator生成。
-    """
-    # 返回一个流式响应
-    # media_type 中的 "multipart/x-mixed-replace" 是实现MJPEG流的关键
-    # "boundary=frame" 定义了帧之间的边界
-    return StreamingResponse(video_stream_generator(),
-                             media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(facial_service.get_video_stream(), media_type="multipart/x-mixed-replace; boundary=frame")
 
-# --- 新增的 API 接口 ---
+
 @router.get("/get_latest_vector")
 async def get_latest_vector():
-    """
-    提供一个API端点，用于获取最近一次成功提取到的人脸特征向量。
-    """
-    if latest_recognition_data["vector"]:
-        # 如果全局变量中有向量数据，则构造一个成功的JSON响应
-        response_data = {
+    result = await facial_service.get_latest_face_info()
+    if result and result.get("vector_str"):
+        return JSONResponse(content={
             "status": "success",
             "model": MODEL_NAME,
             "data": {
-                "vector": latest_recognition_data["vector"],
-                "face_location": latest_recognition_data["location"]
+                "vector": result["vector_str"],
+                "face_location": result["region"]
             }
-        }
-        return JSONResponse(content=response_data)
+        })
     else:
-        # 如果还没有提取到向量，则返回一个表示未找到的JSON响应
-        return JSONResponse(
-            status_code=404,
-            content={
-                "status": "error",
-                "message": "No face vector has been extracted from the stream yet."
-            }
-        )
+        return JSONResponse(status_code=404, content={"status": "error", "message": "暂无可用的人脸特征向量。"})

@@ -8,14 +8,14 @@
           <a-button id="animatedElement" class="title-btn animate__animated animate__backInUp" :icon="h(SearchOutlined)" @click="jumpToRoutePlanning">进入实时监控</a-button>
         </div>
       </div>
-      
+
       <!-- 信息卡片区域 -->
       <div class="monitoring-container">
         <div class="section-title">
           <span class="title-text">教室监控指标</span>
           <div class="title-line"></div>
         </div>
-        
+
         <div class="cards-wrapper">
           <!-- 卡片1：出勤率 -->
           <div class="info-card">
@@ -28,7 +28,7 @@
               <div class="card-desc">比上周提升 <span class="highlight">+3.2%</span></div>
             </div>
           </div>
-          
+
           <!-- 卡片2：抬头率 -->
           <div class="info-card">
             <div class="card-icon coverage-icon">
@@ -40,7 +40,7 @@
               <div class="card-desc">班级整体表现 <span class="highlight">良好</span></div>
             </div>
           </div>
-          
+
           <!-- 卡片3：告警数 -->
           <div class="info-card">
             <div class="card-icon response-icon">
@@ -52,7 +52,7 @@
               <div class="card-desc">较昨日减少 <span class="highlight">2次</span></div>
             </div>
           </div>
-          
+
           <!-- 卡片4：在线设备 -->
           <div class="info-card">
             <div class="card-icon cost-icon">
@@ -65,7 +65,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- 添加功能区块 -->
         <div class="feature-blocks">
           <div class="feature-block" @click="navigateToFeature('monitor')">
@@ -88,14 +88,14 @@
       </div>
     </div>
   </template>
-  
+
   <script setup>
   import { h } from 'vue';
-  import { 
-    SearchOutlined, 
-    ClockCircleOutlined, 
-    GlobalOutlined, 
-    ThunderboltOutlined, 
+  import {
+    SearchOutlined,
+    ClockCircleOutlined,
+    GlobalOutlined,
+    ThunderboltOutlined,
     DollarOutlined,
     CarOutlined,
     EnvironmentOutlined,
@@ -114,7 +114,7 @@
     const isLoggedIn = await checkIsLoggedIn();
     if (isLoggedIn) {
       // 如果已登录，直接跳转
-      router.push('/monitor');
+      window.location.href = 'http://localhost:5000/'; // 在当前窗口跳转
     } else {
       // 未登录，跳转到登录页面并携带提示信息
       router.push({
@@ -130,7 +130,7 @@
   // 修改navigateToFeature方法，简化登录验证
   const navigateToFeature = async (feature) => {
     console.log(`准备跳转到${feature}功能`);
-    
+
     // 检查用户是否已登录
     const isLoggedIn = await checkIsLoggedIn();
     if (isLoggedIn) {
@@ -159,7 +159,7 @@
       // 未登录，直接跳转到登录页面并携带提示信息
       const featureName = getFeatureName(feature);
       const redirectPath = feature === 'monitor' ? '/monitor' : null;
-      
+
       router.push({
         path: '/login',
         query: {
@@ -198,7 +198,7 @@
     }
   })
   </script>
-  
+
   <style scoped>
   @import '@/assets/styles/monitoring.css';
 
@@ -208,6 +208,6 @@
   } */
   </style>
 
-  
-  
-  
+
+
+
