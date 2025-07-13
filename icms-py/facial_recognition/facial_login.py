@@ -96,21 +96,21 @@ async def compare_face(request: CompareRequest):
         # - 余弦相似度：> 0.4 为匹配
         # - 欧氏距离：< 10 为匹配
         cosine_threshold = 0.4
-        distance_threshold = 10.0
+        distance_threshold = 15.0
 
         # 综合判断
-        is_verified = similarity > cosine_threshold and distance < distance_threshold
+        is_verified = bool(similarity > cosine_threshold and distance < distance_threshold)  # 转换为Python原生布尔值
 
         logger.info(
             f"用户 '{request.username}' 比对完成。余弦相似度: {similarity:.4f}, 欧氏距离: {distance:.4f}, 匹配: {is_verified}")
 
         return {
             "status": "success",
-            "verified": is_verified,
-            "cosine_similarity": float(similarity),
-            "euclidean_distance": float(distance),
-            "cosine_threshold": cosine_threshold,
-            "distance_threshold": distance_threshold,
+            "verified": is_verified,  # 现在是Python原生布尔值
+            "cosine_similarity": float(similarity),  # 确保是Python float
+            "euclidean_distance": float(distance),  # 确保是Python float
+            "cosine_threshold": float(cosine_threshold),  # 确保是Python float
+            "distance_threshold": float(distance_threshold),  # 确保是Python float
             "message": "比对操作成功完成。"
         }
 
@@ -173,14 +173,14 @@ async def compare_face_deepface(request: CompareRequest):
             detector_backend='skip'  # 因为我们已经有向量了，所以跳过检测
         )
 
-        is_verified = verification_result.get("verified", False)
+        is_verified = bool(verification_result.get("verified", False))  # 转换为Python原生布尔值
         logger.info(f"用户 '{request.username}' DeepFace比对完成。结果是否匹配: {is_verified}")
 
         return {
             "status": "success",
-            "verified": is_verified,
-            "distance": float(verification_result.get("distance", 0)),
-            "threshold": float(verification_result.get("threshold", 0)),
+            "verified": is_verified,  # 现在是Python原生布尔值
+            "distance": float(verification_result.get("distance", 0)),  # 确保是Python float
+            "threshold": float(verification_result.get("threshold", 0)),  # 确保是Python float
             "message": "DeepFace比对操作成功完成。"
         }
 
