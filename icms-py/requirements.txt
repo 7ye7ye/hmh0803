@@ -8,3 +8,4 @@ opencv-contrib-python==4.8.0.76
 mediapipe==0.10.9
 imutils
 python-dotenv
+fastapi_cdn_host
