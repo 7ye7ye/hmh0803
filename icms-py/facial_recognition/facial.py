@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # 定义视频流地址、人脸识别模型等常量
-VIDEO_STREAM_URL ="rtmp://121.36.44.77:1935/live/livestream"
+VIDEO_STREAM_URL ="rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'mtcnn'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,9 +53,16 @@ class FacialRecognitionService:
         self.stats = {"fps": 0.0,"process_fps":0.0}  # 简化后的统计信息，只关心最终输出的FPS
 
     async def start_background_tasks(self):
+        """启动后台任务: 视频流读取和AI处理"""
         logger.info("启动后台任务: 视频流读取和AI处理...")
-        asyncio.create_task(self._video_stream_loop())
-        asyncio.create_task(self._ai_processing_loop())
+        try:
+            # 创建并启动后台任务
+            self.video_task = asyncio.create_task(self._video_stream_loop())
+            self.ai_task = asyncio.create_task(self._ai_processing_loop())
+            logger.info("后台任务启动成功")
+        except Exception as e:
+            logger.error(f"启动后台任务时发生错误: {e}")
+            raise
 
     # 视频流读取循环
     async def _video_stream_loop(self):
@@ -314,7 +321,24 @@ facial_service = FacialRecognitionService()
 
 @router.on_event("startup")
 async def startup_event():
-    await facial_service.start_background_tasks()
+    """服务启动时的初始化"""
+    try:
+        logger.info("正在初始化人脸识别服务...")
+        await facial_service.start_background_tasks()
+        logger.info("人脸识别服务初始化完成")
+    except Exception as e:
+        logger.error(f"初始化人脸识别服务时发生错误: {e}")
+        raise
+
+@router.on_event("shutdown")
+async def shutdown_event():
+    """服务关闭时的清理"""
+    try:
+        logger.info("正在关闭人脸识别服务...")
+        await facial_service.cleanup()
+        logger.info("人脸识别服务已关闭")
+    except Exception as e:
+        logger.error(f"关闭人脸识别服务时发生错误: {e}")
 
 
 @router.get("/video_feed")

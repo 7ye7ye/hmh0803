@@ -311,7 +311,12 @@ export default defineComponent({
         const userData = response.data
         if (userData && userData.username) {
           const { username, role } = userData
-          loginUserStore.setLoginUser(username)
+          // 在 store 中保存用户信息
+          loginUserStore.setLoginUser({
+            username,
+            role,
+            loginTime: new Date().toISOString()
+          })
           currentRole.value = role
           isLoggedIn.value = true 
           currentUsername.value = username 
@@ -322,12 +327,12 @@ export default defineComponent({
             router.push('/teacher-dashboard')
           }
         } else {
-          loginUserStore.setLoginUser('未登录')
+          loginUserStore.setLoginUser({ username: '未登录' })
           showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
         }
       } catch (error) {
         console.error('登录请求失败:', error)
-        loginUserStore.setLoginUser('未登录')
+        loginUserStore.setLoginUser({ username: '未登录' })
         showMessage('登录失败，请检查用户名、密码或人脸信息')
       }
     }

@@ -120,24 +120,7 @@
   }
 
   const jumpToUserCenter = async () => {
-    // 检查用户是否已登录 - 这里不应该需要检查，因为只有登录后才会看到这个选项
-    // 但为了安全起见，我们仍然进行检查
-    const isLoggedIn = await loginUserStore.checkLoginStatus();
-    
-    if (isLoggedIn) {
-      // 暂时跳转到首页，等有了用户中心页面再修改
-      // 跳转到用户中心页面
       router.push('/user/center');
-    } else {
-      // 未登录，跳转到登录页面
-      router.push({
-        path: '/login',
-        query: {
-          redirect: '/home', // 重定向到首页，稍后可以改为用户中心页面
-          message: '访问个人中心需要登录，请先登录'
-        }
-      });
-    }
   }
 
   </script>

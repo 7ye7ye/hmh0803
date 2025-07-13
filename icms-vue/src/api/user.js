@@ -5,7 +5,7 @@ console.log('当前环境变量 BASE_API:', process.env.VUE_APP_BASE_API);
 // 创建axios实例
 const request = axios.create({
     baseURL: process.env.VUE_APP_BASE_API,
-    timeout: 10000,
+    timeout: 20000,//签到功能有时处理较慢，增大超时时间至20s
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -38,6 +38,11 @@ export const userApi = {
         return request.post('user/logout', null, {
             withCredentials: true
         });
+    },
+
+    // 用户签到
+    signin(data) {
+        return request.post('user/signin', data);
     },
 
     // 更新用户信息

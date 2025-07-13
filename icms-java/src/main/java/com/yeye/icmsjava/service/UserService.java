@@ -35,4 +35,12 @@ public interface UserService extends IService<User> {
          * @return 安全用户信息
          */
         public User getSaftyUser(User originUser);
+
+        /**
+         *
+         * @param username
+         * @param faceImage
+         * @return 脱敏后的用户信息
+         */
+        User userSignin(String username, HttpServletRequest request,String faceImage);
 }

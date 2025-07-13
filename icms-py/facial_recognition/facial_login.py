@@ -1,17 +1,22 @@
 import asyncio
 import logging
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from deepface import DeepFace
 from .facial import facial_service, MODEL_NAME
-
+from .utils import FaceEncoder, AdvancedLivenessChecker
 # 配置和路由
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai/facial/login", tags=["Facial Login"])
 
 class CompareRequest(BaseModel):
     username: str
+    faceEmbedding: str
+
+class SigninRequest(BaseModel):
+    username: str
+    faceImage: str
     faceEmbedding: str
 
 
@@ -189,4 +194,75 @@ async def compare_face_deepface(request: CompareRequest):
         raise HTTPException(
             status_code=500,
             detail=f"DeepFace人脸比对服务内部发生错误: {e}"
+        )
+
+@router.post("/signin")
+async def compare_face_signin(request: Request, signin_request: SigninRequest):
+    """
+    接收来自后端的用户向量，与摄像头实时捕捉到的人脸进行比对和活体检测
+    """
+    logger.info(f"收到签到请求 - URL: {request.url}")
+    logger.info(f"请求方法: {request.method}")
+    logger.info(f"请求头: {request.headers}")
+    logger.info(f"收到用户 '{signin_request.username}' 的签到任务。")
+
+    # 从图像字符串中提取签到时的人脸向量
+    signinFaceResult = FaceEncoder.extract_vector_from_image(signin_request.faceImage)
+    if not signinFaceResult:
+        logger.warning(f"签到失败：无法从图像中提取人脸向量。")
+        raise HTTPException(
+            status_code=400,
+            detail="无法从图像中提取人脸向量，请确保图像清晰且包含人脸。"
+        )
+
+    # 准备比对向量
+    try:
+        # 从请求中获取存储的向量
+        storedFaceEmbedding = [float(x) for x in signin_request.faceEmbedding.split(',')]
+        # 从签到图像中获取向量
+        signinFaceEmbedding = signinFaceResult['vector_list']
+
+        if len(storedFaceEmbedding) != len(signinFaceEmbedding):
+            logger.error(f"向量维度不匹配: 存储向量{len(storedFaceEmbedding)}, 签到向量{len(signinFaceEmbedding)}")
+            raise HTTPException(status_code=400, detail="向量维度不匹配")
+
+    except (ValueError, AttributeError, KeyError) as e:
+        logger.error(f"处理向量数据时发生错误: {e}")
+        raise HTTPException(status_code=400, detail="提供的向量数据格式不正确。")
+
+    # 核心比对逻辑
+    try:
+        logger.info(f"开始比对用户 '{signin_request.username}' 的签到向量与数据库向量。")
+
+        # 方法1：使用余弦相似度（推荐）
+        similarity = calculate_cosine_similarity(signinFaceEmbedding, storedFaceEmbedding)
+
+        # 方法2：使用欧氏距离作为辅助验证
+        distance = calculate_euclidean_distance(signinFaceEmbedding, storedFaceEmbedding)
+
+        # 设置阈值（根据实际情况调整）
+        cosine_threshold = 0.4
+        distance_threshold = 15.0
+
+        # 综合判断
+        is_verified = bool(similarity > cosine_threshold and distance < distance_threshold)
+
+        logger.info(
+            f"用户 '{signin_request.username}' 比对完成。余弦相似度: {similarity:.4f}, 欧氏距离: {distance:.4f}, 匹配: {is_verified}")
+
+        return {
+            "status": "success",
+            "verified": is_verified,
+            "cosine_similarity": float(similarity),
+            "euclidean_distance": float(distance),
+            "cosine_threshold": float(cosine_threshold),
+            "distance_threshold": float(distance_threshold),
+            "message": "比对操作成功完成。"
+        }
+
+    except Exception as e:
+        logger.error(f"人脸比对过程中发生严重错误: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"人脸比对服务内部发生错误: {str(e)}"
         )

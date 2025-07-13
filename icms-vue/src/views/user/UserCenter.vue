@@ -40,42 +40,9 @@
       <!-- 右侧信息编辑区域 -->
       <a-col :span="16">
         <a-card title="个人信息设置">
-          <a-form
-            :model="formState"
-            :rules="rules"
-            ref="formRef"
-            :label-col="{ span: 4 }"
-            :wrapper-col="{ span: 16 }"
-          >
-            <a-form-item label="用户名" name="username">
-              <a-input v-model:value="formState.username" />
-            </a-form-item>
-
-            <a-form-item label="邮箱" name="email">
-              <a-input v-model:value="formState.email" />
-            </a-form-item>
-
-            <a-form-item label="手机号" name="phone">
-              <a-input v-model:value="formState.phone" />
-            </a-form-item>
-
-            <a-form-item label="密码" name="password">
-              <a-input-password v-model:value="formState.password" placeholder="不修改请留空" />
-            </a-form-item>
-
-            <a-form-item label="确认密码" name="confirmPassword">
-              <a-input-password v-model:value="formState.confirmPassword" placeholder="不修改请留空" />
-            </a-form-item>
-
-            <a-form-item :wrapper-col="{ offset: 4, span: 16 }">
-              <a-button type="primary" @click="handleSubmit" :loading="loading">
-                保存修改
-              </a-button>
-              <a-button style="margin-left: 10px" @click="resetForm">
-                重置
-              </a-button>
-            </a-form-item>
-          </a-form>
+          <p>
+            你好！新的一天请努力
+          </p>
         </a-card>
 
         <!-- 人脸信息管理卡片 -->
@@ -97,7 +64,7 @@
                 @click="handleFaceCapture" 
                 :loading="isProcessing"
               >
-                {{ userInfo.faceImage ? '重新采集' : '采集人脸' }}
+                {{ userInfo.faceImage ? '签到成功' : '点击签到' }}
               </a-button>
             </div>
           </div>
@@ -108,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted,computed } from 'vue'
 import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { message } from 'ant-design-vue'
@@ -116,102 +83,30 @@ import { CameraOutlined } from '@ant-design/icons-vue'
 
 // 状态管理
 const loginUserStore = useLoginUserStore()
-const formRef = ref(null)
 const videoRef = ref(null)
-const loading = ref(false)
 const isCapturing = ref(false)
 const isProcessing = ref(false)
 const userInfo = ref({})
 
-// 表单状态
-const formState = reactive({
-  username: '',
-  email: '',
-  phone: '',
-  password: '',
-  confirmPassword: ''
-})
-
-// 表单验证规则
-const rules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 2, max: 20, message: '用户名长度应在 2-20 个字符之间', trigger: 'blur' }
-  ],
-  email: [
-    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
-  ],
-  phone: [
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号码', trigger: 'blur' }
-  ],
-  confirmPassword: [
-    {
-      validator: async (rule, value) => {
-        if (formState.password && value !== formState.password) {
-          throw new Error('两次输入的密码不一致')
-        }
-      },
-      trigger: 'change'
-    }
-  ]
-}
-
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    const response = await userApi.getCurrentUser()
-    if (response.data) {
-      userInfo.value = response.data
-      // 更新表单数据
-      formState.username = response.data.username || ''
-      formState.email = response.data.email || ''
-      formState.phone = response.data.phone || ''
+    // 从 loginUserStore 获取用户名
+    userInfo.value = {
+      username: loginUserStore.loginUser.username,
+      role: 'student', // 如果需要角色信息，也可以从 store 中获取
     }
+    message.success('获取用户信息成功')
   } catch (error) {
     console.error('获取用户信息失败:', error)
     message.error('获取用户信息失败')
   }
 }
 
-// 提交表单
-const handleSubmit = async () => {
-  try {
-    await formRef.value.validate()
-    loading.value = true
-    
-    // 构建更新数据
-    const updateData = {
-      username: formState.username,
-      email: formState.email,
-      phone: formState.phone
-    }
-    
-    // 如果输入了新密码，添加到更新数据中
-    if (formState.password) {
-      updateData.password = formState.password
-    }
-
-    // 调用更新接口
-    const response = await userApi.updateUser(updateData)
-    if (response.data.code === 0) {
-      message.success('更新成功')
-      await fetchUserInfo() // 重新获取用户信息
-      loginUserStore.setLoginUser(formState.username) // 更新store中的用户名
-    } else {
-      message.error(response.data.message || '更新失败')
-    }
-  } catch (error) {
-    console.error('更新用户信息失败:', error)
-    message.error('更新失败，请检查输入信息')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 重置表单
-const resetForm = () => {
-  formRef.value?.resetFields()
-}
+const signinInfo = reactive({
+  username: computed(() => loginUserStore.loginUser.username), // 使用计算属性确保实时更新
+  faceImage: null
+})
 
 // 初始化摄像头
 const initCamera = async () => {
@@ -247,18 +142,20 @@ const handleFaceCapture = async () => {
       canvas.height = videoRef.value.videoHeight
       canvas.getContext('2d').drawImage(videoRef.value, 0, 0)
       const faceImage = canvas.toDataURL('image/jpeg', 0.8)
-      
-      // 调用更新人脸信息的接口
-      const response = await userApi.updateFaceInfo({ faceImage })
-      if (response.data.code === 0) {
+      signinInfo.faceImage = faceImage
+      // 调用签到接口
+      const response = await userApi.signin(signinInfo)
+      console.log(response)
+
+      if (response) {
         userInfo.value.faceImage = faceImage
-        message.success('人脸信息更新成功')
+        message.success('签到成功')
       } else {
-        message.error(response.data.message || '人脸信息更新失败')
+        message.error(response.data.message || '签到失败')
       }
     } catch (error) {
-      console.error('更新人脸信息失败:', error)
-      message.error('更新人脸信息失败')
+      console.error('签到失败:', error)
+      message.error('签到失败')
     } finally {
       isProcessing.value = false
       isCapturing.value = false
