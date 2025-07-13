@@ -4,6 +4,9 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 import mediapipe as mp
+from threading import Lock
+import time
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,26 +16,33 @@ class FaceEncoder:
     def __init__(self, model_name: str, detector_backend: str):
         self.model_name = model_name
         self.detector_backend = detector_backend
+        self._model_lock = Lock()
+        self._model_loaded = False
+
         # 预加载模型以提高后续性能
         logger.info(f"正在为 FaceEncoder 预加载模型 '{model_name}'...")
-        DeepFace.build_model(model_name)
-        logger.info("FaceEncoder 模型预加载完成。")
+        try:
+            DeepFace.build_model(model_name)
+            self._model_loaded = True
+            logger.info("FaceEncoder 模型预加载完成。")
+        except Exception as e:
+            logger.error(f"模型预加载失败：{e}")
 
     async def extract_vector(self, frame: np.ndarray) -> dict | None:
         """
         从单帧图像中提取人脸信息。
         返回: 一个包含向量、区域等信息的字典，如果未检测到则返回 None。
         """
-        if frame is None or frame.size == 0:
+        if frame is None or frame.size == 0 or not self._model_loaded:
             return None
         try:
-            # 使用 asyncio.to_thread 运行阻塞的 CPU 密集型任务
-            results = await asyncio.to_thread(
-                DeepFace.represent,
-                img_path=frame,
-                model_name=self.model_name,
-                detector_backend=self.detector_backend,
-                enforce_detection=True  # 强制检测，未检测到会抛出异常
+            # 线程执行器来运行cpu密集型任务
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(
+                None,
+                self._extract_face_sync,
+                frame
+
             )
             if not results:
                 return None
@@ -50,30 +60,44 @@ class FaceEncoder:
                 "region": face_info['facial_area']
             }
         except ValueError:
-            # 这是 DeepFace 在 enforce_detection=True 且未检测到人脸时抛出的常见异常
-            logger.info("在帧中未检测到人脸。")
+            logger.debug("在帧中未检测到人脸。")
             return None
         except Exception as e:
             logger.warning(f"向量提取过程中发生未知错误: {e}")
             return None
+    def _extract_face_sync(self,frame:np.ndarray):
+        with self._model_lock:
+            return DeepFace.represent(
+                img_path=frame,
+                model_name=self.model_name,
+                detector_backend=self.detector_backend,
+                enforce_detection=True
+            )
 
 
 class AdvancedLivenessChecker:
     def __init__(self, liveness_model_path: str):
         logger.info("正在初始化标准的活体检测分类模型...")
-        self.liveness_model = cv2.dnn.readNetFromONNX(liveness_model_path)
-        logger.info("正在初始化 MediaPipe Face Mesh 用于姿态分析...")
-        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
-            max_num_faces=1,
-            refine_landmarks=True,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.4
-        )
-        logger.info("高级活体检测方案初始化完成。")
+        try:
+            self.liveness_model = cv2.dnn.readNetFromONNX(liveness_model_path)
+            logger.info("正在初始化 MediaPipe Face Mesh 用于姿态分析...")
+            self.face_mesh = mp.solutions.face_mesh.FaceMesh(
+                max_num_faces=1,
+                refine_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.4
+            )
+            logger.info("高级活体检测方案初始化完成。")
+        except Exception as e:
+            logger.error(f"活体检测模型初始化失败{e}")
+            raise
 
     def _preprocess_liveness_input(self, face_crop: np.ndarray) -> np.ndarray:
         resized_face = cv2.resize(face_crop, (128, 128))
-        blob = cv2.dnn.blobFromImage(resized_face, 1.0 / 255.0, (128, 128), mean=(0, 0, 0), swapRB=False, crop=False)
+        blob = cv2.dnn.blobFromImage(
+            resized_face, 1.0 / 255.0, (128, 128),
+            mean=(0, 0, 0), swapRB=False, crop=False
+        )
         return blob
 
     def check(self, frame: np.ndarray, face_region: dict) -> dict | None:
@@ -94,7 +118,7 @@ class AdvancedLivenessChecker:
             if face_crop.size == 0:
                 return None
 
-            # 2. 模型检测 (这部分逻辑不变)
+            # 2. 模型检测
             liveness_input_blob = self._preprocess_liveness_input(face_crop)
             self.liveness_model.setInput(liveness_input_blob)
             preds = self.liveness_model.forward()
@@ -106,9 +130,7 @@ class AdvancedLivenessChecker:
 
             face_center = None
             if results.multi_face_landmarks:
-                # 获取在 face_crop 内的 landmark
                 face_landmarks = results.multi_face_landmarks[0].landmark
-                # 使用鼻子尖端作为稳定的面部中心点 (landmark 1)
                 nose_tip = face_landmarks[1]
 
                 # 将 face_crop 内的相对坐标，转换回 frame 内的绝对像素坐标
