@@ -3,6 +3,7 @@ import logging
 import cv2
 import numpy as np
 from deepface import DeepFace
+import base64
 #import mediapipe as mp
 from threading import Lock
 import time
@@ -73,6 +74,69 @@ class FaceEncoder:
                 detector_backend='skip',
                 enforce_detection=False
             )
+    
+    @staticmethod
+    def extract_vector_from_image(image_str: str, model_name: str = "Facenet512", detector_backend: str = "opencv") -> dict | None:
+        """
+        从base64编码的图像字符串中提取人脸特征向量。
+        
+        Args:
+            image_str: base64编码的图像字符串
+            model_name: 使用的模型名称，默认为Facenet512
+            detector_backend: 使用的检测器后端，默认为opencv
+            
+        Returns:
+            dict: 包含向量信息的字典，如果失败则返回None
+            {
+                "vector_list": list,  # 人脸特征向量列表
+                "vector_str": str,    # 逗号分隔的向量字符串
+                "region": dict        # 人脸区域信息
+            }
+        """
+        try:
+            # 1. 解码base64图像字符串
+            if "base64," in image_str:
+                image_str = image_str.split("base64,")[1]
+            
+            img_data = base64.b64decode(image_str)
+            nparr = np.frombuffer(img_data, np.uint8)
+            frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if frame is None:
+                logger.error("无法解码图像数据")
+                return None
+                
+            # 2. 使用DeepFace提取特征向量
+            results = DeepFace.represent(
+                img_path=frame,
+                model_name=model_name,
+                detector_backend=detector_backend,
+                enforce_detection=True  # 强制检测人脸
+            )
+            
+            if not results or len(results) == 0:
+                logger.warning("未在图像中检测到人脸")
+                return None
+                
+            # 3. 处理结果
+            face_info = results[0]
+            vector = face_info['embedding']
+            vector_str = ",".join(map(str, vector))
+            
+            return {
+                "vector_list": vector,
+                "vector_str": vector_str,
+                "region": face_info['facial_area']
+            }
+            
+        except ValueError as ve:
+            logger.warning(f"人脸检测失败: {ve}")
+            return None
+        except Exception as e:
+            logger.error(f"处理图像时发生错误: {e}")
+            return None
+            
+    
 
 
 class AdvancedLivenessChecker:

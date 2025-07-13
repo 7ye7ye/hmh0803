@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.yeye.icmsjava.model.User;
 import com.yeye.icmsjava.model.request.FacialCompareRequest;
+import com.yeye.icmsjava.model.request.UserSigninRequest;
 import com.yeye.icmsjava.service.UserService;
 import com.yeye.icmsjava.mapper.UserMapper;
 import jakarta.annotation.Resource;
@@ -181,6 +182,58 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             saftyUser.setRole(originUser.getRole());
             return saftyUser;
         }
+
+    @Override
+    public User userSignin(String username, HttpServletRequest request, String faceImage){
+        //用户名不能包含特殊字符
+        // 校验用户名，只允许中文、英文字母、数字
+        //可以防止sql注入
+        String regex = "^[\\u4e00-\\u9fa5a-zA-Z0-9]+$"; // 只允许中文、英文字母、数字
+        if (!username.matches(regex)) {
+            System.out.println("3");
+            return null;
+        }
+
+        // --- 第一步: 验证用户名 ---
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", username);
+
+        User user = userMapper.selectOne(queryWrapper);
+
+        UserSigninRequest userSigninRequest=new UserSigninRequest();
+        userSigninRequest.setUsername(user.getUsername());
+        userSigninRequest.setFaceEmbedding(user.getFaceEmbedding());
+        userSigninRequest.setFaceImage(faceImage);
+
+        // --- 第二步: 调用Python服务进行人脸比对 ---
+        // 从数据库获取该用户预存的人脸特征向量
+        // 假设您的User实体类中有 getFaceEmbedding() 方法
+        String storedFaceEmbedding = user.getFaceEmbedding();
+        if (storedFaceEmbedding == null || storedFaceEmbedding.isEmpty()) {
+            System.out.println("登录失败：用户未注册人脸信息。");
+            return null;
+        }
+
+        try {
+            // 发送POST请求到Python服务，并获取比对结果
+            // 假设后端接口直接返回 true 或 false
+            FacialCompareRequest  response= restTemplate.postForObject(URLContant.FACE_SIGNIN_URL, userSigninRequest, FacialCompareRequest.class);
+            System.out.println("response:"+response);
+
+            if (response.getVerified()) {
+                System.out.println("人脸比对成功，签到成功！" );
+                return user;
+            } else {
+                System.out.println("人脸比对失败，签到失败。");
+                return null;
+            }
+        } catch (RestClientException e) {
+            // 处理网络异常或Python服务不可用的情况
+            System.err.println("调用人脸比对服务失败: " + e.getMessage());
+            return null;
+        }
+
+    }
 
 }
 

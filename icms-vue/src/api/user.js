@@ -40,6 +40,11 @@ export const userApi = {
         });
     },
 
+    // 用户签到
+    signin(data) {
+        return request.post('user/signin', data);
+    },
+
     // 更新用户信息
      updateUser(data) {
         return request.put('user/update', data);

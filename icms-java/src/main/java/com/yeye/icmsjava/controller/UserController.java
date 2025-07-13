@@ -3,6 +3,7 @@ package com.yeye.icmsjava.controller;
 import com.yeye.icmsjava.model.User;
 import com.yeye.icmsjava.model.request.UserLoginRequest;
 import com.yeye.icmsjava.model.request.UserRegisterRequest;
+import com.yeye.icmsjava.model.request.UserSigninRequest;
 import com.yeye.icmsjava.service.UserService;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -154,5 +155,31 @@ public class UserController {
                         put("message", "退出失败");
                     }});
         }
+    }
+
+    @PostMapping("/signin")
+    @Operation(summary = "用户签到接口", description = "接收用户签到信息，验证通过后返回用户信息，签到失败返回对应提示")
+    public ResponseEntity<?> userSignin(@RequestBody UserSigninRequest userSigninRequest, HttpServletRequest request) {
+        if (userSigninRequest == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("请求体不能为空");
+        }
+
+        String username = userSigninRequest.getUsername();
+        String faceImage=userSigninRequest.getFaceImage();
+
+        System.out.println(username+"发起签到请求");
+
+        if (StringUtils.isAnyBlank(username)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("用户名不能为空");
+        }
+        // 调用服务层进行登录验证
+        User user = userService.userSignin(username, request,faceImage);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("签到失败");
+        }
+        System.out.println("已返回用户信息");
+        // 签到成功，返回用户信息
+        return ResponseEntity.ok(user);
     }
 }
