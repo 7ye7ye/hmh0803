@@ -38,5 +38,20 @@ export const userApi = {
         return request.post('user/logout', null, {
             withCredentials: true
         });
+    },
+
+    // 更新用户信息
+     updateUser(data) {
+        return request.put('user/update', data);
+    },
+
+    // 更新用户人脸信息
+    updateFaceInfo(data) {
+        return request.put('user/face', data);
+    },
+
+    // 重置密码
+    resetPassword(data) {
+        return request.post('user/reset-password', data);
     }
 }

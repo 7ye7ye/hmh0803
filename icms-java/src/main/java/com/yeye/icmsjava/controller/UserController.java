@@ -60,7 +60,7 @@ public class UserController {
         User user = userService.userLogin(username, password, request,faceEmbedding);
 
         if (user == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密码错误");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("登录失败");
         }
         System.out.println("已返回用户信息");
         // 登录成功，返回用户信息

@@ -123,7 +123,7 @@
           redirect: '/monitor',
         }
       });
-      message.error('实时监控功能仅教师可用,请登录');
+      message.error('实时监控功能仅教师可用,请登录教师账号');
     }
   }
 
