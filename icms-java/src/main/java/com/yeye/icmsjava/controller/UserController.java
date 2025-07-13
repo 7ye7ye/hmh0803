@@ -103,7 +103,7 @@ public class UserController {
     //USER_LOGIN_STATE还有问题
     @GetMapping("/current")
     @Operation(summary = "获取当前用户接口", description = "从会话中获取当前登录用户的用户名并返回")
-    public String getCurrentUser(HttpServletRequest request) {
+    public User getCurrentUser(HttpServletRequest request) {
         Object userObj=null;
         try {
             userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
@@ -117,7 +117,8 @@ public class UserController {
         if(currentUser==null){
             return null;
         }
-        return currentUser.getUsername();
+        System.out.println(currentUser);
+        return currentUser;
     }
 
     @PostMapping("/logout")

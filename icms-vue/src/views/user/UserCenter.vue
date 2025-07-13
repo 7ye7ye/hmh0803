@@ -64,7 +64,7 @@
                 @click="handleFaceCapture" 
                 :loading="isProcessing"
               >
-                {{ userInfo.faceImage ? '验证中...' : '点击签到' }}
+                {{ userInfo.faceImage ? '签到成功' : '点击签到' }}
               </a-button>
             </div>
           </div>
@@ -93,16 +93,20 @@ const userInfo = ref({})
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    const response = await userApi.getCurrentUser()
+    console.log(userInfo)
+    console.log(loginUser.username)
+
+    userInfo.username=loginUser.username
+    // const response = await userApi.getCurrentUser()
     message.success('获取用户信息成功')
 
-    if (response.data) {
-      userInfo.value = response.data
-      // 更新表单数据
-      formState.username = response.data.username || ''
-      formState.email = response.data.email || ''
-      formState.phone = response.data.phone || ''
-    }
+    // if (response.data) {
+    //   userInfo.value = response.data
+    //   // 更新表单数据
+    //   formState.username = response.data.username || ''
+    //   formState.email = response.data.email || ''
+    //   formState.phone = response.data.phone || ''
+    // }
   } catch (error) {
     console.error('获取用户信息失败:', error)
     message.error('获取用户信息失败')
@@ -110,7 +114,7 @@ const fetchUserInfo = async () => {
 }
 
 const signinInfo = reactive({
-      username: '曹玥',
+      username: userInfo.username,
       faceImage: null // 用于存储特征向量
 })
 
@@ -191,7 +195,9 @@ const handleFaceCapture = async () => {
       signinInfo.faceImage = faceImage
       // 调用签到接口
       const response = await userApi.signin(signinInfo)
-      if (response.data.code === 0) {
+      console.log(response)
+
+      if (response) {
         userInfo.value.faceImage = faceImage
         message.success('签到成功')
       } else {
