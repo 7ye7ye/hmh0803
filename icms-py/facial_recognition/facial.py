@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # 定义视频流地址、人脸识别模型等常量
 VIDEO_STREAM_URL ="rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
-DETECTOR_BACKEND = 'opencv'
+DETECTOR_BACKEND = 'mtcnn'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LIVENESS_MODEL_PATH = os.path.join(BASE_DIR, '..', 'models', 'liveness_official', 'anti_spoof_predict.onnx')
 
@@ -30,12 +30,13 @@ class FacialRecognitionService:
 
         #活体检测相关状态
         self.liveness_state = "CHECKING"
+        self.vector_extracted = False
         self.is_processing: bool = False
         self.liveness_history = deque(maxlen=10)
         self.position_history = deque(maxlen=5)
-        self.MODEL_CONFIDENCE_THRESHOLD = 0.9
+        self.MODEL_CONFIDENCE_THRESHOLD = 0.7
         self.STABLE_FRAME_REQUIREMENT = 6
-        self.MOVEMENT_THRESHOLD = 0.002
+        self.MOVEMENT_THRESHOLD = 0.0008
 
         # # 性能优化相关
         # self.last_process_time = 0
@@ -79,49 +80,79 @@ class FacialRecognitionService:
                 self.latest_frame = frame
             await asyncio.sleep(1 / 60)  # 保持高读取率，让AI循环自己决定处理频率
 
-        def reset_state(self):
-            self.liveness_state = "CHECKING"
-            self.vector_extracted = False
-            self.liveness_history.clear()
-            self.position_history.clear()
-            self.latest_result = {}
-            logger.debug("认证状态已重置。")
+    def reset_state(self):
+        self.liveness_state = "CHECKING"
+        self.vector_extracted = False
+        self.liveness_history.clear()
+        self.position_history.clear()
+        self.latest_result = {}
+        logger.debug("认证状态已重置。")
 
     # 根据单帧的检测结果来更新整个认证状态。
-    def _update_liveness_state(self, liveness_data: dict | None):
+    def _update_liveness_state(self, liveness_data: dict | None, region: dict, frame_shape: tuple):
+        # 默认当前帧不是活体
         current_frame_is_live = False
 
+        # --- 默认值和初始化 ---
+        model_ok = False
+        movement_ok = False
+        movement = 0.0
+        model_score = -99.0  # 一个无效的分数
+
+        # --- 计算当前帧的人脸中心点 ---
+        h_frame, w_frame, _ = frame_shape
+        cx = region.get('x', 0) + region.get('w', 0) / 2
+        cy = region.get('y', 0) + region.get('h', 0) / 2
+        face_center = (cx / w_frame, cy / h_frame)
+        self.position_history.append(face_center)  # 无论如何都先存入位置
+
+        # --- 开始判断 ---
         if liveness_data:
+            model_score = liveness_data['model_confidence']
             # 条件1: AI模型的置信度是否足够高
-            model_ok = liveness_data["model_confidence"] > self.MODEL_CONFIDENCE_THRESHOLD
+            model_ok = model_score > self.MODEL_CONFIDENCE_THRESHOLD
 
-            # 条件2: 头部是否有微小运动（对抗照片攻击）
-            movement_ok = False
-            if liveness_data["face_center"]:
-                self.position_history.append(liveness_data["face_center"])
-                if len(self.position_history) > 1:
-                    # 计算最近两帧的中心点在归一化坐标系中的欧氏距离
-                    dx = self.position_history[-1][0] - self.position_history[-2][0]
-                    dy = self.position_history[-1][1] - self.position_history[-2][1]
-                    movement = (dx ** 2 + dy ** 2) ** 0.5
-                    movement_ok = movement > self.MOVEMENT_THRESHOLD
+        # 条件2: 只有在队列中有足够多的点时才开始计算位移
+        # 这是为了给位移计算一个“热身”时间，避免一开始就因位移为0而失败
+        if len(self.position_history) > 1:
+            p1 = self.position_history[-1]
+            p2 = self.position_history[-2]
+            if p1 and p2:
+                dx = p1[0] - p2[0]
+                dy = p1[1] - p2[1]
+                movement = (dx ** 2 + dy ** 2) ** 0.5
+                movement_ok = movement > self.MOVEMENT_THRESHOLD
 
-            # 最终判定当前帧是否为“活体”：必须同时满足两个条件
-            current_frame_is_live = model_ok and movement_ok
+        # 最终判定当前帧是否为“活体”
+        current_frame_is_live = model_ok and movement_ok
 
-        #如果当前帧被判定为假，则立即清空所有历史记录，重置进度条
+        # --- 打印调试日志 ---
+        logger.info(
+            f"Liveness Check: "
+            f"Model OK? {model_ok} (Score: {model_score:.4f} > {self.MODEL_CONFIDENCE_THRESHOLD}), "
+            f"Movement OK? {movement_ok} (Move: {movement:.6f} > {self.MOVEMENT_THRESHOLD}), "
+            f"--> Current Frame Live: {current_frame_is_live}"
+        )
+
+        # --- 更新历史记录和状态 ---
         if not current_frame_is_live:
+            # 如果判定失败，只清空 liveness_history，让 position_history 继续累积
+            # 这样即使用户中途静止了一下，也不会完全重置位移检测
             self.liveness_history.clear()
-            self.position_history.clear()
 
-        # 将当前帧的判断结果 (True/False) 加入历史记录队列
         self.liveness_history.append(current_frame_is_live)
 
-        # 检查是否满足最终通过条件，连续6帧通过才是true
+        progress = sum(self.liveness_history)
+        if progress > 0 or not current_frame_is_live:
+            logger.info(f"Liveness Progress: {progress}/{self.STABLE_FRAME_REQUIREMENT}")
+
         if len(self.liveness_history) == self.liveness_history.maxlen and all(self.liveness_history):
+            if self.liveness_state != "PASSED":
+                logger.info("✅ Liveness Passed!")
             self.liveness_state = "PASSED"
-            logger.info("活体检测已通过！")
         else:
+            if self.liveness_state == "PASSED":
+                self.reset_state()
             self.liveness_state = "CHECKING"
 
     async def _ai_processing_loop(self):
@@ -155,7 +186,7 @@ class FacialRecognitionService:
                     # 步骤 2: 只要还没提取向量，就持续进行活体检测
                     if not self.vector_extracted:
                         liveness_data = self.liveness_checker.check(frame_to_process, region)
-                        self._update_liveness_state(liveness_data)
+                        self._update_liveness_state(liveness_data,region,frame_to_process.shape)
 
                     # 步骤 3: 如果活体检测通过 且 尚未提取向量，则执行一次性慢速操作
                     if self.liveness_state == "PASSED" and not self.vector_extracted:

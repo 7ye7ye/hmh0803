@@ -3,7 +3,7 @@ import logging
 import cv2
 import numpy as np
 from deepface import DeepFace
-import mediapipe as mp
+#import mediapipe as mp
 from threading import Lock
 import time
 
@@ -70,46 +70,31 @@ class FaceEncoder:
             return DeepFace.represent(
                 img_path=frame,
                 model_name=self.model_name,
-                detector_backend=self.detector_backend,
-                enforce_detection=True
+                detector_backend='skip',
+                enforce_detection=False
             )
 
 
 class AdvancedLivenessChecker:
     def __init__(self, liveness_model_path: str):
         logger.info("正在初始化标准的活体检测分类模型...")
-        try:
-            self.liveness_model = cv2.dnn.readNetFromONNX(liveness_model_path)
-            logger.info("正在初始化 MediaPipe Face Mesh 用于姿态分析...")
-            self.face_mesh = mp.solutions.face_mesh.FaceMesh(
-                max_num_faces=1,
-                refine_landmarks=True,
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.4
-            )
-            logger.info("高级活体检测方案初始化完成。")
-        except Exception as e:
-            logger.error(f"活体检测模型初始化失败{e}")
-            raise
+        self.liveness_model = cv2.dnn.readNetFromONNX(liveness_model_path)
+        logger.info("活体检测方案初始化完成 (仅模型检测)。")
 
     def _preprocess_liveness_input(self, face_crop: np.ndarray) -> np.ndarray:
         resized_face = cv2.resize(face_crop, (128, 128))
-        blob = cv2.dnn.blobFromImage(
-            resized_face, 1.0 / 255.0, (128, 128),
-            mean=(0, 0, 0), swapRB=False, crop=False
-        )
+        blob = cv2.dnn.blobFromImage(resized_face, 1.0 / 255.0, (128, 128), mean=(0, 0, 0), swapRB=False, crop=False)
         return blob
 
     def check(self, frame: np.ndarray, face_region: dict) -> dict | None:
         """
-        对指定的人脸区域进行多维度活体检测。
-        返回: 包含模型分数和头部中心点位置的原始数据。
+        对指定的人脸区域进行活体检测。
+        返回: 仅包含模型分数的原始数据。中心点检测逻辑已移除。
         """
         try:
             # 1. 从原始帧中裁剪出人脸
             x, y, w, h = face_region['x'], face_region['y'], face_region['w'], face_region['h']
 
-            # 安全性检查，防止 face_region 坐标超出图像边界
             if x < 0 or y < 0 or x + w > frame.shape[1] or y + h > frame.shape[0]:
                 logger.warning("提供的 face_region 超出图像边界，跳过本次检测。")
                 return None
@@ -124,29 +109,11 @@ class AdvancedLivenessChecker:
             preds = self.liveness_model.forward()
             model_confidence = preds[0][1] - preds[0][0]
 
-            # 3. 头部中心点检测 (只在小的人脸切片上运行，效率更高)
-            rgb_face_crop = cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB)
-            results = self.face_mesh.process(rgb_face_crop)
-
-            face_center = None
-            if results.multi_face_landmarks:
-                face_landmarks = results.multi_face_landmarks[0].landmark
-                nose_tip = face_landmarks[1]
-
-                # 将 face_crop 内的相对坐标，转换回 frame 内的绝对像素坐标
-                h_crop, w_crop, _ = face_crop.shape
-                abs_nose_x = x + (nose_tip.x * w_crop)
-                abs_nose_y = y + (nose_tip.y * h_crop)
-
-                # 最后，将绝对像素坐标转换回相对于整个 frame 的归一化坐标，用于位移计算
-                h_frame, w_frame, _ = frame.shape
-                face_center = (abs_nose_x / w_frame, abs_nose_y / h_frame)
-
             return {
-                "model_confidence": model_confidence,
-                "face_center": face_center
+                "model_confidence": model_confidence
+
             }
 
         except Exception as e:
-            logger.error(f"高级活体检测过程中发生错误: {e}", exc_info=True)
+            logger.error(f"活体检测过程中发生错误: {e}", exc_info=True)
             return None
