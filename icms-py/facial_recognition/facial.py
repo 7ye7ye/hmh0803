@@ -64,18 +64,31 @@ class FacialRecognitionService:
         while True:
             if not cap.isOpened():
                 logger.error(f"无法打开视频流: {VIDEO_STREAM_URL}，2秒后重试...")
+                async with self.lock:
+                    if self.latest_result:
+                        self.latest_result.clear()
+                self.reset_state()
+
                 await asyncio.sleep(2)
                 cap = cv2.VideoCapture(VIDEO_STREAM_URL)
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
                 continue
+
             ret, frame = cap.read()
             if not ret:
                 logger.warning("无法读取视频帧，可能流已中断，尝试重连...")
+
+                async with self.lock:
+                    if self.latest_result:
+                        self.latest_result.clear()
+                self.reset_state()
+
                 cap.release()
                 await asyncio.sleep(2)
                 cap = cv2.VideoCapture(VIDEO_STREAM_URL)
                 cap.set(cv2.CAP_PROP_BUFFERSIZE, 2)
                 continue
+
             async with self.lock:
                 self.latest_frame = frame
             await asyncio.sleep(1 / 60)  # 保持高读取率，让AI循环自己决定处理频率
@@ -85,8 +98,7 @@ class FacialRecognitionService:
         self.vector_extracted = False
         self.liveness_history.clear()
         self.position_history.clear()
-        self.latest_result = {}
-        logger.debug("认证状态已重置。")
+        logger.debug("活体检测过程状态已重置，准备进行下一轮检测。")
 
     # 根据单帧的检测结果来更新整个认证状态。
     def _update_liveness_state(self, liveness_data: dict | None, region: dict, frame_shape: tuple):
@@ -170,51 +182,53 @@ class FacialRecognitionService:
             display_frame = frame_to_process.copy()
 
             try:
-                # 步骤 1: 使用快速的人脸检测器，而不是完整的 represent
-                # DeepFace.extract_faces 只做检测和裁剪，速度快得多
                 detected_faces = await asyncio.to_thread(
                     DeepFace.extract_faces,
                     img_path=frame_to_process,
                     detector_backend=DETECTOR_BACKEND,
-                    enforce_detection=False  # 未检测到脸时返回空列表
+                    enforce_detection=False
                 )
 
                 if detected_faces:
-                    main_face = detected_faces[0]  # 只处理最大的人脸
+                    main_face = detected_faces[0]
                     region = main_face['facial_area']
 
-                    # 步骤 2: 只要还没提取向量，就持续进行活体检测
-                    if not self.vector_extracted:
+                    # 活体检测现在会持续进行，直到状态变为 PASSED
+                    if self.liveness_state != "PASSED":
                         liveness_data = self.liveness_checker.check(frame_to_process, region)
-                        self._update_liveness_state(liveness_data,region,frame_to_process.shape)
+                        self._update_liveness_state(liveness_data, region, frame_to_process.shape)
 
-                    # 步骤 3: 如果活体检测通过 且 尚未提取向量，则执行一次性慢速操作
-                    if self.liveness_state == "PASSED" and not self.vector_extracted:
+                    # 只要活体通过，就提取向量并立刻重置
+                    if self.liveness_state == "PASSED":
                         logger.info("活体检测通过，正在提取特征向量...")
-                        # 在人脸切片上提取特征，而不是全图，效率更高
                         face_crop = main_face['face']
-
                         face_data = await self.encoder.extract_vector(face_crop)
 
                         if face_data:
-                            logger.info("特征向量提取成功！")
+                            logger.info("特征向量提取成功！更新结果并重置过程以进行下一次捕获。")
                             async with self.lock:
+                                # 更新结果，这是API会获取的数据
                                 self.latest_result = face_data
                                 self.latest_result["liveness_passed"] = True
-                            self.vector_extracted = True  # 标记为已提取，不再重复此操作
+
+                            # 立即重置过程，准备下一次活体检测
+                            self.reset_state()
                         else:
                             logger.warning("活体通过了，但特征提取失败，重置状态。")
                             self.reset_state()
 
-                    # 步骤 4: 绘制可视化界面
                     self._draw_visualization(display_frame, region)
 
-                else:  # 如果未检测到人脸
+                else:
+                    # 如果之前有结果，现在人脸没了，说明结果已失效，需要清除
+                    async with self.lock:
+                        if self.latest_result:
+                            self.latest_result.clear()
+                            logger.info("人脸从画面消失，已清除之前的有效结果。")
                     self.reset_state()
                     cv2.putText(display_frame, "No Face Detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255),
                                 2)
 
-                # 更新统计信息
                 process_count += 1
                 elapsed = time.time() - process_start_time
                 if elapsed >= 1.0:
@@ -222,14 +236,14 @@ class FacialRecognitionService:
                     process_start_time = time.time()
                     process_count = 0
 
-                # 更新用于推流的帧
                 async with self.lock:
                     self.processed_frame = display_frame
 
             except Exception as e:
                 logger.error(f"AI处理循环中发生错误: {e}", exc_info=True)
+                self.reset_state()  # 发生未知错误时也重置状态
 
-            await asyncio.sleep(0.033)  # 约等于30FPS的处理频率
+            await asyncio.sleep(0.033)
 
     def _draw_visualization(self, frame: np.ndarray, region: dict):
         label_color = (0, 0, 255)  # 默认红色
