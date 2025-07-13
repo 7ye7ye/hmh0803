@@ -112,21 +112,19 @@
   const jumpToRoutePlanning = async () => {
     // 检查用户是否已登录
     const isLoggedIn = await checkIsLoggedIn();
-
-    window.location.href = 'http://localhost:5000/'; // 在当前窗口跳转
-    // if (isLoggedIn) {
-    //   // 如果已登录，直接跳转
-    //   router.push('/monitor');
-    // } else {
-    //   // 未登录，跳转到登录页面并携带提示信息
-    //   router.push({
-    //     path: '/login',
-    //     query: {
-    //       redirect: '/monitor',
-    //     }
-    //   });
-    //   message.error('实时监控功能仅教师可用,请登录');
-    // }
+    if (isLoggedIn) {
+      // 如果已登录，直接跳转
+      window.location.href = 'http://localhost:5000/'; // 在当前窗口跳转
+    } else {
+      // 未登录，跳转到登录页面并携带提示信息
+      router.push({
+        path: '/login',
+        query: {
+          redirect: '/monitor',
+        }
+      });
+      message.error('实时监控功能仅教师可用,请登录教师账号');
+    }
   }
 
   // 修改navigateToFeature方法，简化登录验证

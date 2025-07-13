@@ -126,7 +126,8 @@
     
     if (isLoggedIn) {
       // 暂时跳转到首页，等有了用户中心页面再修改
-      router.push('/home')
+      // 跳转到用户中心页面
+      router.push('/user/center');
     } else {
       // 未登录，跳转到登录页面
       router.push({
