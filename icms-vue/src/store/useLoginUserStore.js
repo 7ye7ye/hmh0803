@@ -51,8 +51,9 @@ export const useLoginUserStore = defineStore('loginUser', () => {
   const checkLoginStatus = async () => {
     try {
       const response = await userApi.getCurrentUser()
-      if (response.data && response.data.username) {
-        setLoginUser(response.data.username)
+      console.log(response.data)
+      if (response.data) {
+        setLoginUser(response.data)
         return true
       }
       return false

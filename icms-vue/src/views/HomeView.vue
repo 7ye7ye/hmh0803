@@ -6,18 +6,6 @@
       <div class="title-en animate__animated animate__backInUp">Intelligent Classroom Monitoring System</div>
       <a-button class="title-btn animate__animated animate__backInUp" ghost>开发版本</a-button>
     </div>
-    <div>
-      <a-input-search
-        v-model:value="value"
-        placeholder="input search text"
-        size="large"
-        @search="onSearch"
-      >
-        <template #enterButton>
-          <a-button @click="reverse">Custom</a-button>
-        </template>
-      </a-input-search>
-    </div>
     <!-- Option-bar 放在背景图片下方 -->
     <div class="option-bar">
       <div class="option-item" @click="navigate('apiResponse')">
