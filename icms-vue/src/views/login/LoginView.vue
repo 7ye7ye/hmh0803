@@ -215,7 +215,9 @@ export default defineComponent({
       isProcessing.value =true
 
       try {
-        const faceEmbedding = await aiApi.start_facial_recognition()
+        const response=await aiApi.start_facial_recognition()
+        const faceEmbedding = response.data.data.vector
+        console.log('response',response)
         console.log('faceEmbedding:', faceEmbedding)
 
         if (faceEmbedding) {
@@ -230,25 +232,7 @@ export default defineComponent({
       }
     }
 
-    // 登录时捕获人脸的函数
-    const captureFaceForLogin = async () => {      
-      isProcessing.value =true
-      try {
-        const faceEmbedding = await aiApi.start_facial_recognition()
-        console.log('faceEmbedding:', faceEmbedding)
-
-        if (faceEmbedding) {
-          loginForm.faceEmbedding = faceEmbedding
-          showMessage('人脸验证信息采集成功')
-        }
-      } catch (error) {
-        console.error('人脸验证采集失败:', error)
-        showMessage('人脸验证采集失败，请重试')
-      } finally {
-        isProcessing.value = false
-      }
-    }
-
+   
     // 重置注册人脸采集的函数
     const resetCapture = () => {
       captureFaceForLogin()      // 重新捕获
@@ -298,6 +282,25 @@ export default defineComponent({
         router.push('/login')
       } catch (error) {
         console.error('退出登录失败:', error)
+      }
+    }
+
+     // 登录时捕获人脸的函数
+     const captureFaceForLogin = async () => {      
+      isProcessing.value =true
+      try {
+        const response =await userApi.login(loginForm)
+        console.log('faceEmbedding:', response.data.faceEmbedding)
+
+        if (response.data.faceEmbedding) {
+          loginForm.faceEmbedding = response
+          showMessage('人脸验证信息采集成功')
+        }
+      } catch (error) {
+        console.error('人脸验证采集失败:', error)
+        showMessage('人脸验证采集失败，请确认该账户是否为本人')
+      } finally {
+        isProcessing.value = false
       }
     }
 
