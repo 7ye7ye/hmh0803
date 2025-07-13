@@ -93,20 +93,12 @@ const userInfo = ref({})
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    console.log(userInfo)
-    console.log(loginUser.username)
-
-    userInfo.username=loginUser.username
-    // const response = await userApi.getCurrentUser()
+    // 从 loginUserStore 获取用户名
+    userInfo.value = {
+      username: loginUserStore.loginUser.username,
+      role: 'student', // 如果需要角色信息，也可以从 store 中获取
+    }
     message.success('获取用户信息成功')
-
-    // if (response.data) {
-    //   userInfo.value = response.data
-    //   // 更新表单数据
-    //   formState.username = response.data.username || ''
-    //   formState.email = response.data.email || ''
-    //   formState.phone = response.data.phone || ''
-    // }
   } catch (error) {
     console.error('获取用户信息失败:', error)
     message.error('获取用户信息失败')
@@ -114,8 +106,8 @@ const fetchUserInfo = async () => {
 }
 
 const signinInfo = reactive({
-      username: userInfo.username,
-      faceImage: null // 用于存储特征向量
+  username: computed(() => loginUserStore.loginUser.username), // 使用计算属性确保实时更新
+  faceImage: null
 })
 
 // 提交表单
