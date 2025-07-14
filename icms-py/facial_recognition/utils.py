@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 import base64
-#import mediapipe as mp
+import mediapipe as mp
 from threading import Lock
 import time
 
@@ -181,3 +181,67 @@ class AdvancedLivenessChecker:
         except Exception as e:
             logger.error(f"活体检测过程中发生错误: {e}", exc_info=True)
             return None
+
+
+class MouthOpeningDetector:
+    def __init__(self):
+        logger.info("正在初始化 MediaPipe 面部关键点检测模型...")
+        self.face_mesh = mp.solutions.face_mesh.FaceMesh(
+            max_num_faces=1,
+            refine_landmarks=True,  # 启用以获取更精确的嘴唇轮廓
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        # 定义嘴唇上下和左右的关键点索引
+        # https://github.com/google/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model_uv_visualization.png
+        self.UPPER_LIP_INDEX = 13
+        self.LOWER_LIP_INDEX = 14
+        self.LEFT_MOUTH_CORNER_INDEX = 78
+        self.RIGHT_MOUTH_CORNER_INDEX = 308
+        logger.info("MediaPipe 模型初始化完成。")
+
+    def check_mouth_open(self, frame: np.ndarray) -> float | None:
+        """
+        计算并返回嘴巴的张开比例 (MAR - Mouth Aspect Ratio)
+        返回: 一个浮点数代表张开比例，如果未检测到人脸则返回 None
+        """
+        if frame is None or frame.size == 0:
+            return None
+
+        try:
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb_frame.flags.writeable = False  # 提高性能
+            results = self.face_mesh.process(rgb_frame)
+            rgb_frame.flags.writeable = True
+
+            if not results.multi_face_landmarks:
+                return None
+
+            landmarks = results.multi_face_landmarks[0].landmark
+
+            # 提取关键点坐标
+            upper_lip = landmarks[self.UPPER_LIP_INDEX]
+            lower_lip = landmarks[self.LOWER_LIP_INDEX]
+            left_corner = landmarks[self.LEFT_MOUTH_CORNER_INDEX]
+            right_corner = landmarks[self.RIGHT_MOUTH_CORNER_INDEX]
+
+            # 计算垂直距离
+            vertical_dist = self._calculate_distance(upper_lip, lower_lip)
+            # 计算水平距离
+            horizontal_dist = self._calculate_distance(left_corner, right_corner)
+
+            if horizontal_dist == 0:
+                return 0.0
+
+            # 计算嘴巴长宽比
+            mar = vertical_dist / horizontal_dist
+            return mar
+
+        except Exception as e:
+            logger.error(f"检测嘴部状态时发生错误: {e}")
+            return None
+
+    @staticmethod
+    def _calculate_distance(p1, p2) -> float:
+        """计算两个MediaPipe关键点之间的欧氏距离"""
+        return ((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2) ** 0.5
