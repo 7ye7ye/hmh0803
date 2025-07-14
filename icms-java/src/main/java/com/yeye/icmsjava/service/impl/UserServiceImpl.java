@@ -2,11 +2,14 @@ package com.yeye.icmsjava.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.yeye.icmsjava.mapper.AttendanceLogMapper;
 import com.yeye.icmsjava.model.User;
 import com.yeye.icmsjava.model.request.FacialCompareRequest;
 import com.yeye.icmsjava.model.request.UserSigninRequest;
 import com.yeye.icmsjava.service.UserService;
 import com.yeye.icmsjava.mapper.UserMapper;
+import com.yeye.icmsjava.service.AttendanceLogService;
+import com.yeye.icmsjava.model.AttendanceLog;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
@@ -16,6 +19,7 @@ import org.springframework.util.DigestUtils;
 import org.springframework.web.client.RestClientException;
 import com.yeye.icmsjava.contant.URLContant;
 import org.springframework.web.client.RestTemplate;
+import java.time.LocalDateTime;
 
 /**
 * @author Administrator
@@ -28,6 +32,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         @Resource
         private UserMapper userMapper;//注入userMapper
         private final RestTemplate restTemplate;
+        @Resource
+        private AttendanceLogService attendanceLogService;
 
         @Autowired
         public UserServiceImpl(RestTemplate restTemplate) {
@@ -43,7 +49,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         private static final String USER_LOGIN_STATE="user_login_state";
 
     @Override
-        public int userRegister(String username, String password, String checkPassword,String faceEmbedding) {
+        public int userRegister(String username, String password, String checkPassword,String faceEmbedding,String role) {
             //一，校验
             //1.非空
             if(StringUtils.isAnyBlank(username,password,checkPassword,faceEmbedding)){
@@ -64,7 +70,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             if(!password.equals(checkPassword)){
                 return -1;
             }
-            //3.用户名不能重复：查询数据库(放最后节约型性能)
+            //3.用户名不能重复：查询数据库(放最后节约性能)
             QueryWrapper<User> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("username", username);
             long count = userMapper.selectCount(queryWrapper);
@@ -80,13 +86,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             user.setUsername(username);
             user.setPassword(newPassword);
             user.setFaceEmbedding(faceEmbedding);
+            user.setRole(role);
+
             boolean saveResult=this.save(user);//service的方法，userMapper.insert(user)返回Int类型
-            if(!saveResult){
-                return -1;
-            }
+                if(!saveResult){
+                    return -1;
+                }
 
             return user.getUserId();
-
         }
 
         @Override
@@ -221,7 +228,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 System.out.println("response:"+response);
 
                 if (response.getVerified()) {
-                    System.out.println("人脸比对成功，签到成功！" );
+                    System.out.println("人脸比对成功，签到成功！");
+                    // 创建考勤记录
+                    AttendanceLog attendanceLog = new AttendanceLog();
+                    attendanceLog.setUserId(user.getUserId());
+                    attendanceLog.setTimestamp(LocalDateTime.now());
+                    // 保存考勤记录
+                    attendanceLogService.save(attendanceLog);
+                    System.out.println("已保存考勤记录: " + attendanceLog);
                     return user;
                 } else {
                     System.out.println("人脸比对失败，签到失败。");

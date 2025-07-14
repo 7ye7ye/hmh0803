@@ -242,7 +242,7 @@ async def compare_face_signin(request: Request, signin_request: SigninRequest):
 
         # 设置阈值（根据实际情况调整）
         cosine_threshold = 0.4
-        distance_threshold = 15.0
+        distance_threshold = 25.0
 
         # 综合判断
         is_verified = bool(similarity > cosine_threshold and distance < distance_threshold)

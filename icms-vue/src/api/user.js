@@ -5,7 +5,7 @@ console.log('当前环境变量 BASE_API:', process.env.VUE_APP_BASE_API);
 // 创建axios实例
 const request = axios.create({
     baseURL: process.env.VUE_APP_BASE_API,
-    timeout: 10000,
+    timeout: 30000,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
@@ -58,5 +58,25 @@ export const userApi = {
     // 重置密码
     resetPassword(data) {
         return request.post('user/reset-password', data);
-    }
+    },
+
+     // 考勤相关的API
+    // 获取考勤记录
+    getAttendanceRecords() {
+        return request.get('user/records', {});
+    },
+
+    // 导出考勤记录
+    exportAttendance(params) {
+        return request.get('user/export', { 
+            params,
+            responseType: 'blob'
+        });
+    },
+
+    // 更新考勤规则
+    updateAttendanceRule(data) {
+        return request.put('user/rule', data);
+    },
+
 }

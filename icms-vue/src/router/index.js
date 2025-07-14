@@ -34,6 +34,16 @@ const routes = [
     }
   },
   {
+    path: '/user/attendance',
+    name: 'userAttendance',
+    component: () => import('@/views/user/AttendanceView.vue'),
+    meta: { 
+      requiresAuth: true,
+      requiresUser: true, // 只允许用户访问
+      title: '考勤管理'
+    }
+  },
+  {
     path: '/api-response',
     name: 'apiResponse',
     component: ApiResponseView,

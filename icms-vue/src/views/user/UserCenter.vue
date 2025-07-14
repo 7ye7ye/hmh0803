@@ -83,9 +83,7 @@ import { CameraOutlined } from '@ant-design/icons-vue'
 
 // 状态管理
 const loginUserStore = useLoginUserStore()
-const formRef = ref(null)
 const videoRef = ref(null)
-const loading = ref(false)
 const isCapturing = ref(false)
 const isProcessing = ref(false)
 const userInfo = ref({})
@@ -106,49 +104,9 @@ const fetchUserInfo = async () => {
 }
 
 const signinInfo = reactive({
-  username: computed(() => loginUserStore.loginUser.username), // 使用计算属性确保实时更新
+  username:loginUserStore.loginUser.username, // 使用计算属性确保实时更新
   faceImage: null
 })
-
-// 提交表单
-const handleSubmit = async () => {
-  try {
-    await formRef.value.validate()
-    loading.value = true
-    
-    // 构建更新数据
-    const updateData = {
-      username: formState.username,
-      email: formState.email,
-      phone: formState.phone
-    }
-    
-    // 如果输入了新密码，添加到更新数据中
-    if (formState.password) {
-      updateData.password = formState.password
-    }
-
-    // 调用更新接口
-    const response = await userApi.updateUser(updateData)
-    if (response.data.code === 0) {
-      message.success('更新成功')
-      await fetchUserInfo() // 重新获取用户信息
-      loginUserStore.setLoginUser(formState.username) // 更新store中的用户名
-    } else {
-      message.error(response.data.message || '更新失败')
-    }
-  } catch (error) {
-    console.error('更新用户信息失败:', error)
-    message.error('更新失败，请检查输入信息')
-  } finally {
-    loading.value = false
-  }
-}
-
-// 重置表单
-const resetForm = () => {
-  formRef.value?.resetFields()
-}
 
 // 初始化摄像头
 const initCamera = async () => {

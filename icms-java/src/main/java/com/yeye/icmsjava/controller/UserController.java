@@ -1,9 +1,11 @@
 package com.yeye.icmsjava.controller;
 
+import com.yeye.icmsjava.model.AttendanceLog;
 import com.yeye.icmsjava.model.User;
 import com.yeye.icmsjava.model.request.UserLoginRequest;
 import com.yeye.icmsjava.model.request.UserRegisterRequest;
 import com.yeye.icmsjava.model.request.UserSigninRequest;
+import com.yeye.icmsjava.service.AttendanceLogService;
 import com.yeye.icmsjava.service.UserService;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -27,6 +29,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 
 import static com.yeye.icmsjava.contant.UserConstant.USER_LOGIN_STATE;
 
@@ -65,11 +68,12 @@ public class UserController {
         String password=userRegisterRequest.getPassword();
         String checkPassword=userRegisterRequest.getCheckPassword();
         String faceEmbedding=userRegisterRequest.getFaceEmbedding();
+        String role=userRegisterRequest.getRole();
 
-        if(StringUtils.isAnyBlank(username,password,checkPassword,faceEmbedding)){
+        if(StringUtils.isAnyBlank(username,password,checkPassword,faceEmbedding,role)){
             return 0;
         }
-        return userService.userRegister(username,password,checkPassword,faceEmbedding);
+        return userService.userRegister(username,password,checkPassword,faceEmbedding,role);
     }
 
     @PostMapping("/login")

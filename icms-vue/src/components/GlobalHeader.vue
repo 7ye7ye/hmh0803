@@ -32,7 +32,8 @@
                   <a-menu>
                     <a-menu-item key="0" @click="jumpToUserCenter">
                       <UserOutlined />
-                      <span>个人中心</span>
+                      <span v-if="loginUserStore.loginUser.role === 'student'">个人中心</span>
+                      <span v-else>考勤管理</span>
                     </a-menu-item>
                     <a-menu-item key="1" @click="handleLogout">
                       <LogoutOutlined />
@@ -120,7 +121,12 @@
   }
 
   const jumpToUserCenter = async () => {
+    console.log('跳转前确认用户身份',loginUserStore.loginUser.role)
+    if (loginUserStore.loginUser.role === 'student') {
       router.push('/user/center');
+    } else {
+      router.push('/user/attendance');
+    }
   }
 
   </script>
