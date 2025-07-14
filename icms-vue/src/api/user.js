@@ -60,23 +60,6 @@ export const userApi = {
         return request.post('user/reset-password', data);
     },
 
-     // 考勤相关的API
-    // 获取考勤记录
-    getAttendanceRecords() {
-        return request.get('user/records', {});
-    },
-
-    // 导出考勤记录
-    exportAttendance(params) {
-        return request.get('user/export', { 
-            params,
-            responseType: 'blob'
-        });
-    },
-
-    // 更新考勤规则
-    updateAttendanceRule(data) {
-        return request.put('user/rule', data);
-    },
+    
 
 }

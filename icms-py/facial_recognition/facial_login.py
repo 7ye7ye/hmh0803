@@ -101,7 +101,7 @@ async def compare_face(request: CompareRequest):
         # - 余弦相似度：> 0.4 为匹配
         # - 欧氏距离：< 10 为匹配
         cosine_threshold = 0.4
-        distance_threshold = 20.0
+        distance_threshold = 25.0
 
         # 综合判断
         is_verified = bool(similarity > cosine_threshold and distance < distance_threshold)  # 转换为Python原生布尔值

@@ -141,7 +141,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { userApi } from '@/api/user'
+import { attendanceApi } from '@/api/attendance'
 import { message } from 'ant-design-vue'
 import dayjs from 'dayjs'
 
@@ -150,6 +150,7 @@ const loading = ref(false)
 const dateRange = ref([])
 const detailModalVisible = ref(false)
 const selectedRecord = ref(null)
+const attendanceRecords = ref([]) // 添加考勤记录数组
 
 // 考勤统计数据
 const statistics = reactive({
@@ -174,9 +175,9 @@ const deadline = computed(() => {
 // 表格列定义
 const columns = [
   {
-    title: 'ID',
-    dataIndex: 'studentId',
-    key: 'studentId',
+    title: '序号',
+    key: 'index',
+    customRender: ({ index }) => index + 1,
   },
   {
     title: '姓名',
@@ -187,7 +188,9 @@ const columns = [
     title: '签到时间',
     dataIndex: 'timestamp',
     key: 'timestamp',
-    sorter: true,
+    customRender: ({ text }) => {
+      return dayjs(text).format('YYYY年MM月DD日 HH:mm:ss')
+    }
   },
   {
     title: '状态',
@@ -236,18 +239,18 @@ const getStatusText = (status) => {
 const fetchAttendanceRecords = async () => {
   loading.value = true
   try {
-    // 这里替换为实际的API调用
-    const response = await userApi.getAttendanceRecords({
+    // 调用获取考勤记录的接口
+    const response = await attendanceApi.getAttendanceRecords({
       startDate: dateRange.value[0]?.format('YYYY-MM-DD'),
       endDate: dateRange.value[1]?.format('YYYY-MM-DD'),
       page: pagination.current,
       pageSize: pagination.pageSize,
     })
-    
+    console.log('获取考勤记录',response)
     if (response.data) {
-      attendanceRecords.value = response.data.records
+      attendanceRecords.value = response.data
       pagination.total = response.data.total
-      
+      console.log('考勤记录',attendanceRecords.value)
       // 更新统计数据
       statistics.totalCount = response.data.total
       statistics.signedCount = response.data.signedCount
@@ -283,7 +286,7 @@ const showAttendanceDetail = (record) => {
 // 导出考勤记录
 const exportAttendance = async () => {
   try {
-    const response = await userApi.exportAttendance({
+    const response = await attendanceApi.exportAttendance({
       startDate: dateRange.value[0]?.format('YYYY-MM-DD'),
       endDate: dateRange.value[1]?.format('YYYY-MM-DD'),
     })
@@ -309,7 +312,7 @@ const exportAttendance = async () => {
 const saveAttendanceRule = async () => {
   try {
     // 这里替换为实际的API调用
-    await userApi.updateAttendanceRule(attendanceRule)
+    await attendanceApi.updateAttendanceRule(attendanceRule)
     message.success('规则保存成功')
   } catch (error) {
     console.error('保存规则失败:', error)
