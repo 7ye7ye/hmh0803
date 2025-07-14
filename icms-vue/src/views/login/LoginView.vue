@@ -27,16 +27,20 @@
           
           <!-- 人脸采集区域 -->
           <div class="face-capture">
-            <!-- 视频采集容器，当未采集到人脸图像时显示 -->
+           <!-- 视频采集容器，当未采集到人脸图像时显示 -->
             <div class="video-container" v-if="!registerForm.faceImage">
-              <!-- 视频未就绪时的占位提示 -->
+              <img 
+                :src="videoFeedUrl"
+                class="stream-image"
+                @load="() => isRegisterPlayerReady = true"
+                @error="() => errorMessage = '视频流加载失败'"
+              />
               <div class="camera-placeholder" v-if="!isRegisterPlayerReady">
                 <div class="camera-icon">📺</div>
                 <div class="camera-text">正在连接视频流...</div>
                 <div class="camera-help">{{ errorMessage || '如无法显示视频，请检查网络连接' }}</div>
               </div>
-              <!-- 人脸采集按钮 -->
-              <a-button class="capture-btn" @click="captureFaceForRegister">
+              <a-button class="capture-btn" @click="captureFaceForRegister" :disabled="!isRegisterPlayerReady || isProcessing" :loading="isProcessing">
                 {{ isProcessing ? '正在采集中...' : '采集人脸信息' }}
               </a-button>
             </div>
@@ -75,19 +79,19 @@
             
             <!-- 人脸验证区域 -->
             <div class="face-capture">
-              <!-- 视频采集容器，当未采集到人脸图像时显示 -->
+              <!-- 登录表单的视频容器 -->
               <div class="video-container" v-if="!loginForm.faceImage">
-                <!-- RTMP流播放器容器 -->
-                <div data-vjs-player>
-                  <video ref="loginPlayer" class="video-js vjs-big-play-centered capture-video" controls></video>
-                </div>
-                <!-- 视频未就绪时的占位提示 -->
+                <img 
+                  :src="videoFeedUrl"
+                  class="stream-image"
+                  @load="() => isLoginPlayerReady = true"
+                  @error="() => errorMessage = '视频流加载失败'"
+                />
                 <div class="camera-placeholder" v-if="!isLoginPlayerReady">
                   <div class="camera-icon">📺</div>
                   <div class="camera-text">正在连接视频流...</div>
                   <div class="camera-help">{{ errorMessage || '如无法显示视频，请检查网络连接' }}</div>
                 </div>
-                <!-- 人脸验证按钮 -->
                 <a-button class="capture-btn" @click="captureFaceForLogin" :disabled="!isLoginPlayerReady || isProcessing" :loading="isProcessing">
                   {{ isProcessing ? '正在验证中...' : '人脸验证' }}
                 </a-button>
@@ -143,14 +147,12 @@
 
 <script>
 // 导入所需的Vue组件和工具
-import { defineComponent, ref, reactive, onMounted, watch, computed, onUnmounted, nextTick } from 'vue'
+import { defineComponent, ref, reactive, onMounted, watch, computed, onUnmounted, nextTick} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { aiApi } from '../../api/ai'
 import { message } from 'ant-design-vue';
-
-import 'video.js/dist/video-js.css'
 
 export default defineComponent({
   name: 'LoginView',
@@ -160,15 +162,34 @@ export default defineComponent({
     const route = useRoute()
     const loginUserStore = useLoginUserStore()
 
+    // 视频流URL
+    const videoFeedUrl = computed(() => {
+      const baseUrl = process.env.VUE_APP_AI_API || 'http://localhost:8000'
+      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}`
+    })
+
+    // 监听视频流加载状态
+    watch(videoFeedUrl, () => {
+      const img = document.querySelector('.stream-image')
+      if (img) {
+        img.onload = () => {
+          isRegisterPlayerReady.value = true
+          isLoginPlayerReady.value = true
+        }
+        img.onerror = () => {
+          errorMessage.value = '视频流加载失败'
+          isRegisterPlayerReady.value = false
+          isLoginPlayerReady.value = false
+        }
+      }
+    })
+
     // 组件状态管理
     const isRegisterForm = ref(false)  // 控制显示注册还是登录表单
     const isLoggedIn = ref(false)      // 用户登录状态
     const currentUsername = ref('')     // 当前登录用户名
     const currentRole = ref('')         // 当前用户角色
     const messageText = ref('')         // 消息提示文本
-    const registerPlayer = ref(null)    // 注册表单播放器引用
-    const loginPlayer = ref(null)       // 登录表单播放器引用
-    const playerInstances = ref({})     // 播放器实例存储
     const isRegisterPlayerReady = ref(false) // 注册播放器就绪状态
     const isLoginPlayerReady = ref(false)    // 登录播放器就绪状态
     const errorMessage = ref('')        // 错误消息
@@ -274,14 +295,14 @@ export default defineComponent({
     // 退出登录的函数
     const handleLogout = async () => {
       try {
-        await userApi.logout()
+        await loginUserStore.logout()
         isLoggedIn.value = false
         currentUsername.value = ''
         currentRole.value = ''
-        loginUserStore.setLoginUser('')
         router.push('/login')
       } catch (error) {
         console.error('退出登录失败:', error)
+        showMessage('退出登录失败，请重试')
       }
     }
 
@@ -362,61 +383,82 @@ export default defineComponent({
     // 切换登录/注册表单的函数
     const changeForm = () => {
       isRegisterForm.value = !isRegisterForm.value
-      errorMessage.value = '' 
+      errorMessage.value = ''
       
-      // 获取DOM元素
-      const switchCtn = document.querySelector("#switch-cnt")
-      const switchC1 = document.querySelector("#switch-c1")
-      const switchC2 = document.querySelector("#switch-c2")
-      const switchCircles = document.querySelectorAll(".switch_circle")
-      const aContainer = document.querySelector("#a-container")
-      const bContainer = document.querySelector("#b-container")
+      // 使用 nextTick 确保 DOM 已更新
+      nextTick(() => {
+        // 获取DOM元素
+        const switchCtn = document.querySelector("#switch-cnt")
+        const switchC1 = document.querySelector("#switch-c1")
+        const switchC2 = document.querySelector("#switch-c2")
+        const switchCircles = document.querySelectorAll(".switch_circle")
+        const aContainer = document.querySelector("#a-container")
+        const bContainer = document.querySelector("#b-container")
 
-      // 添加过渡动画类
-      switchCtn.classList.add("is-gx")
-      setTimeout(() => {
-        switchCtn.classList.remove("is-gx")
-      }, 1500)
+        if (!switchCtn || !switchC1 || !switchC2 || !aContainer || !bContainer) {
+          console.error('Some DOM elements not found')
+          return
+        }
 
-      // 切换表单显示状态
-      switchCtn.classList.toggle("is-txr")
-      switchCircles.forEach(circle => circle.classList.toggle("is-txr"))
-      switchC1.classList.toggle("is-hidden")
-      switchC2.classList.toggle("is-hidden")
-      aContainer.classList.toggle("is-txl")
-      bContainer.classList.toggle("is-txl")
-      bContainer.classList.toggle("is-z")
+        // 添加过渡动画类
+        switchCtn.classList.add("is-gx")
+        setTimeout(() => {
+          switchCtn.classList.remove("is-gx")
+        }, 1500)
 
+        // 切换表单显示状态
+        switchCtn.classList.toggle("is-txr")
+        switchCircles.forEach(circle => circle.classList.toggle("is-txr"))
+        switchC1.classList.toggle("is-hidden")
+        switchC2.classList.toggle("is-hidden")
+        aContainer.classList.toggle("is-txl")
+        bContainer.classList.toggle("is-txl")
+        bContainer.classList.toggle("is-z")
+      })
     }
 
     // 组件挂载时的处理
     onMounted(() => {
-      const main = document.querySelector("#switch-cnt")
+      // 处理 ResizeObserver 错误
+      window.addEventListener('error', (e) => {
+        if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+          const resizeObserverErr = e;
+          resizeObserverErr.stopImmediatePropagation();
+        }
+      });
+
       checkLoginStatus().then(() => {
         if(isLoggedIn.value) return;
 
-        const shouldRegister = route.query.register === 'true'
-        if (shouldRegister) {
-          if(main) changeForm()
-        } else {
-          nextTick(() => {
-          })
-        }
+        // 设置视频流就绪状态的延迟检查
+        setTimeout(() => {
+          isRegisterPlayerReady.value = true;
+          isLoginPlayerReady.value = true;
+        }, 1000);
+
+        // 在 nextTick 中处理路由查询参数
+        nextTick(() => {
+          const shouldRegister = route.query.register === 'true'
+          if (shouldRegister) {
+            changeForm()
+          }
+        })
       })
     })
 
     // 组件卸载时的清理
     onUnmounted(() => {
-      // 销毁所有播放器实例
-      Object.values(playerInstances.value).forEach(player => {
-        if (player && typeof player.dispose === 'function') {
-          player.dispose()
-        }
-      })
+      // 移除 ResizeObserver 错误处理
+      window.removeEventListener('error', () => {});
+      
+      // 清理相关状态
+      isRegisterPlayerReady.value = false;
+      isLoginPlayerReady.value = false;
     })
 
     // 返回组件所需的响应式数据和方法
     return {
+      videoFeedUrl,
       loginForm,
       registerForm,
       isRegisterForm,
@@ -428,8 +470,6 @@ export default defineComponent({
       handleLogout,
       changeForm,
       messageText,
-      registerPlayer,
-      loginPlayer,
       isRegisterPlayerReady,
       isLoginPlayerReady,
       errorMessage,
@@ -448,6 +488,14 @@ export default defineComponent({
 <style scoped>
 /* 导入字体图标库 */
 @import url('./fonts/iconfont.css');
+
+.stream-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block; /* 防止图片底部间隙 */
+}
 
 /* 消息提示框样式 - 固定定位在顶部中间 */
 #messageBox {
@@ -582,10 +630,9 @@ export default defineComponent({
 /* 人脸采集区域样式 */
 .face-capture {
   width: 100%;
-  margin: 1px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  max-width: 400px;
+  margin: 20px auto;
+  position: relative;
 }
 
 /* 视频容器样式 */
@@ -601,6 +648,7 @@ export default defineComponent({
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  margin: 0 auto;
 }
 
 /* 视频元素样式 */
@@ -686,6 +734,7 @@ export default defineComponent({
   position: relative;
   border-radius: 12px;
   overflow: hidden;
+  margin: 0 auto;
 }
 
 /* 人脸预览图片样式 */
@@ -694,6 +743,7 @@ export default defineComponent({
   height: 100%;
   object-fit: cover;
   border-radius: 12px;
+  display: block;
 }
 
 /* 重新采集按钮样式 */

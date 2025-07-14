@@ -39,6 +39,21 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     }
   }
 
+  // 退出登录
+  const logout = async () => {
+    try {
+      // 调用后端退出登录接口
+      await userApi.logout()
+    } catch (error) {
+      console.error('退出登录失败:', error)
+    } finally {
+      // 无论后端是否成功，都清除前端状态
+      setLoginUser({ username: '未登录' })
+      // 清除前端 cookie
+      document.cookie = 'JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+    }
+  }
+
   // 获取当前登录用户信息
   const fetchLoginUser = async () => {
     try {
@@ -87,7 +102,8 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     setCurrentMenu,
     setLoginUser,
     fetchLoginUser,
-    checkLoginStatus
+    checkLoginStatus,
+    logout
   }
 }, {
   persist: true // 启用持久化
