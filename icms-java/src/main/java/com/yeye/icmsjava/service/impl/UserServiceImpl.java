@@ -233,6 +233,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                     AttendanceLog attendanceLog = new AttendanceLog();
                     attendanceLog.setUserId(user.getUserId());
                     attendanceLog.setTimestamp(LocalDateTime.now());
+                    attendanceLog.setFaceImage(faceImage);
+
                     // 保存考勤记录
                     attendanceLogService.save(attendanceLog);
                     System.out.println("已保存考勤记录: " + attendanceLog);

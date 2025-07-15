@@ -30,13 +30,14 @@ public class AttendanceLogServiceImpl extends ServiceImpl<AttendanceLogMapper, A
             AttendanceLogRequest attendanceLogRequest = new AttendanceLogRequest();
             // 设置签到时间
             attendanceLogRequest.setTimestamp(attendanceLog.getTimestamp());
-            
+            attendanceLogRequest.setFaceImage(attendanceLog.getFaceImage());
+
             // 使用userMapper直接查询用户信息
             User user = userMapper.selectById(attendanceLog.getUserId());
             if (user != null) {
                 attendanceLogRequest.setUsername(user.getUsername());
             }
-            
+
             attendanceLogRequests.add(attendanceLogRequest);
         }
         return attendanceLogRequests;

@@ -132,7 +132,11 @@
         </a-descriptions>
         <div class="face-image-container mt-24">
           <h4>签到照片</h4>
-          <img :src="selectedRecord.faceImage" alt="签到照片" class="face-image" />
+          <img 
+            :src="selectedRecord.faceImage || ''"
+            alt="签到照片" 
+            class="face-image" 
+          />
         </div>
       </div>
     </a-modal>
@@ -280,6 +284,7 @@ const handleTableChange = (pag) => {
 // 显示考勤详情
 const showAttendanceDetail = (record) => {
   selectedRecord.value = record
+  console.log('selectedRecord',selectedRecord.value)
   detailModalVisible.value = true
 }
 

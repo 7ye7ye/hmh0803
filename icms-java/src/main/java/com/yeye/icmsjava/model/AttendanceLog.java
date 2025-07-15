@@ -34,7 +34,7 @@ public class AttendanceLog {
     /**
      * 签到瞬间的现场快照路径 (URL)
      */
-    private String snapshotUrl;
+    private String faceImage;
 
     /**
      * 识别置信度得分 (0.0000-1.0000)
@@ -70,14 +70,6 @@ public class AttendanceLog {
         this.timestamp = timestamp;
     }
 
-    public String getSnapshotUrl() {
-        return snapshotUrl;
-    }
-
-    public void setSnapshotUrl(String snapshotUrl) {
-        this.snapshotUrl = snapshotUrl;
-    }
-
     public BigDecimal getConfidenceScore() {
         return confidenceScore;
     }
@@ -92,5 +84,13 @@ public class AttendanceLog {
 
     public void setLivenessScore(BigDecimal livenessScore) {
         this.livenessScore = livenessScore;
+    }
+
+    public String getFaceImage() {
+        return faceImage;
+    }
+
+    public void setFaceImage(String faceImage) {
+        this.faceImage = faceImage;
     }
 }

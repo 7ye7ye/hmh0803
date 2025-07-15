@@ -165,7 +165,8 @@ export default defineComponent({
     // 视频流URL
     const videoFeedUrl = computed(() => {
       const baseUrl = process.env.VUE_APP_AI_API
-      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}`
+      // 添加时间戳和一个随机数，确保每次切换都会刷新
+      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}&r=${Math.random()}`
     })
 
     // 监听视频流加载状态
@@ -367,12 +368,11 @@ export default defineComponent({
       
       try {
         const response = await userApi.register(registerForm)
-        const { data } = response
-        if (data.code === 0) {
+        if (response.data) {
           showMessage('注册成功，请登录')
           changeForm()
         } else {
-          showMessage(data.message || '注册失败，请检查信息后重试')
+          showMessage(response.message || '注册失败，请检查信息后重试')
         }
       } catch (error) {
         console.error('注册失败:', error)
@@ -384,6 +384,10 @@ export default defineComponent({
     const changeForm = () => {
       isRegisterForm.value = !isRegisterForm.value
       errorMessage.value = ''
+      
+      // 重置视频流状态
+      isRegisterPlayerReady.value = false
+      isLoginPlayerReady.value = false
       
       // 使用 nextTick 确保 DOM 已更新
       nextTick(() => {
@@ -414,6 +418,14 @@ export default defineComponent({
         aContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-z")
+
+        // 强制刷新视频流
+        const streamImages = document.querySelectorAll('.stream-image')
+        streamImages.forEach(img => {
+          if (img) {
+            img.src = videoFeedUrl.value
+          }
+        })
       })
     }
 
@@ -429,12 +441,6 @@ export default defineComponent({
 
       checkLoginStatus().then(() => {
         if(isLoggedIn.value) return;
-
-        // 设置视频流就绪状态的延迟检查
-        setTimeout(() => {
-          isRegisterPlayerReady.value = true;
-          isLoginPlayerReady.value = true;
-        }, 1000);
 
         // 在 nextTick 中处理路由查询参数
         nextTick(() => {

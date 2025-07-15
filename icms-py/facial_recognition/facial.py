@@ -395,15 +395,18 @@ async def video_feed_cors():
 @router.get("/get_latest_vector")
 async def get_latest_vector():
     try:
+        logger.info("接收到人脸采集任务")
+
         # 启动分析
         await facial_service.start_analysis()
         
         # 等待最多10秒获取结果
         start_time = time.time()
-        while time.time() - start_time < 20:
+        while time.time() - start_time < 10:
             result = await facial_service.get_latest_face_info()
             if result and result.get("vector_str"):
                 await facial_service.stop_analysis()
+                logger.info("人脸采集成功")
                 return JSONResponse(content={
                     "status": "success",
                     "model": MODEL_NAME,
