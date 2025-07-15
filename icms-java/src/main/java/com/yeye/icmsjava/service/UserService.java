@@ -26,7 +26,7 @@ public interface UserService extends IService<User> {
          * @param password
          * @return 脱敏后的用户信息
          */
-        User userLogin(String username, String password, HttpServletRequest request,String faceEmbedding);
+        User userLogin(String username, String password, HttpServletRequest request,String faceImage);
 
         /**
          * 用户脱敏
