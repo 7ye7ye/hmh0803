@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # 定义视频流地址、人脸识别模型等常量
-VIDEO_STREAM_URL ="rtmp://121.36.44.77:1935/live/livestream"
+VIDEO_STREAM_URL ="rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'mtcnn'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,7 +49,7 @@ class FacialRecognitionService:
         self.STABLE_FRAME_REQUIREMENT = 10
         self.MOVEMENT_THRESHOLD = 0.0008
         self.PASSIVE_STABILITY_REQUIREMENT = 5  # 需要5帧稳定才进入下一阶段
-        self.MOUTH_OPEN_THRESHOLD = 0.45  # 嘴巴张开比例阈值，需要根据实际情况微调
+        self.MOUTH_OPEN_THRESHOLD = 0.35  # 嘴巴张开比例阈值，需要根据实际情况微调
         self.SUCCESS_DISPLAY_DURATION = 3
 
         # 初始化组件

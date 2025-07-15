@@ -166,8 +166,7 @@ export default defineComponent({
     // 视频流URL
     const videoFeedUrl = computed(() => {
       const baseUrl = process.env.VUE_APP_AI_API
-      // 添加时间戳和一个随机数，确保每次切换都会刷新
-      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}&r=${Math.random()}`
+      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}`
     })
 
     // 监听视频流加载状态
@@ -268,6 +267,18 @@ export default defineComponent({
       captureFaceForLogin()      // 重新捕获
     }
 
+    // 采集当前视频流画面为base64图片
+    const captureFaceImage = () => {
+      const video = document.querySelector('.stream-image');
+      if (!video) return '';
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 400;
+      canvas.height = video.videoHeight || 300;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
+    }
+
     // 显示消息提示的函数
     const showMessage = (msg) => {
       console.log('msg:', msg)
@@ -314,6 +325,9 @@ export default defineComponent({
      const captureFaceForLogin = async () => {      
       isProcessing.value =true
       try {
+        // 点击人脸验证时立即采集图片
+        loginForm.faceImage = captureFaceImage();
+        console.log('采集到的图片base64:', loginForm.faceImage);
         const response =await userApi.login(loginForm)
         console.log('faceEmbedding:', response.data.faceEmbedding)
 
@@ -327,12 +341,11 @@ export default defineComponent({
         failCount.value++
         showMessage('人脸验证采集失败，请确认该账户是否为本人')
         // 超过3次则上报告警
-        if (failCount.value >=1) {
-          // 构造告警参数
+        if (failCount.value > 3) {
           const alertData = {
             rule_id: 'stranger-login',
             level: 'ALERT',
-            danger_level: 'low',
+            danger_level: '低',
             source_type: 'Stranger attack',
             event_time: new Date().toISOString(),
             message: '检测到陌生人恶意登录他人账号',
@@ -340,7 +353,7 @@ export default defineComponent({
             frame_idx: 0,
             acknowledged: false,
             related_events: JSON.stringify([]),
-            photo: loginForm.faceImage // 假设faceImage为base64
+            photo: loginForm.faceImage // 直接传递采集到的base64
           }
           try {
             await videoApi.reportStrangerAlert(alertData)
@@ -397,11 +410,12 @@ export default defineComponent({
       
       try {
         const response = await userApi.register(registerForm)
-        if (response.data) {
+        const { data } = response
+        if (data.code === 0) {
           showMessage('注册成功，请登录')
           changeForm()
         } else {
-          showMessage(response.message || '注册失败，请检查信息后重试')
+          showMessage(data.message || '注册失败，请检查信息后重试')
         }
       } catch (error) {
         console.error('注册失败:', error)
@@ -413,10 +427,6 @@ export default defineComponent({
     const changeForm = () => {
       isRegisterForm.value = !isRegisterForm.value
       errorMessage.value = ''
-      
-      // 重置视频流状态
-      isRegisterPlayerReady.value = false
-      isLoginPlayerReady.value = false
       
       // 使用 nextTick 确保 DOM 已更新
       nextTick(() => {
@@ -447,14 +457,6 @@ export default defineComponent({
         aContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-z")
-
-        // 强制刷新视频流
-        const streamImages = document.querySelectorAll('.stream-image')
-        streamImages.forEach(img => {
-          if (img) {
-            img.src = videoFeedUrl.value
-          }
-        })
       })
     }
 
@@ -470,6 +472,12 @@ export default defineComponent({
 
       checkLoginStatus().then(() => {
         if(isLoggedIn.value) return;
+
+        // 设置视频流就绪状态的延迟检查
+        setTimeout(() => {
+          isRegisterPlayerReady.value = true;
+          isLoginPlayerReady.value = true;
+        }, 1000);
 
         // 在 nextTick 中处理路由查询参数
         nextTick(() => {
