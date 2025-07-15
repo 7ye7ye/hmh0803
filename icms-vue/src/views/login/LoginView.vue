@@ -164,7 +164,7 @@ export default defineComponent({
 
     // 视频流URL
     const videoFeedUrl = computed(() => {
-      const baseUrl = process.env.VUE_APP_AI_API || 'http://localhost:8000'
+      const baseUrl = process.env.VUE_APP_AI_API
       return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}`
     })
 
