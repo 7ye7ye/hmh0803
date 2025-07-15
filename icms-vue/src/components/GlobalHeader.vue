@@ -32,7 +32,8 @@
                   <a-menu>
                     <a-menu-item key="0" @click="jumpToUserCenter">
                       <UserOutlined />
-                      <span>个人中心</span>
+                      <span v-if="loginUserStore.loginUser.role === 'student'">个人中心</span>
+                      <span v-else>考勤管理</span>
                     </a-menu-item>
                     <a-menu-item key="1" @click="handleLogout">
                       <LogoutOutlined />
@@ -54,8 +55,7 @@
   import { useLoginUserStore  } from '@/store/useLoginUserStore'
   import { useMenuStore } from '@/store/useMenuStore'
   import { DownOutlined, UserOutlined, LogoutOutlined} from '@ant-design/icons-vue'
-  import { userApi } from '@/api/user'
-
+  
   const loginUserStore = useLoginUserStore()
   const router = useRouter()
   const menuStore = useMenuStore()
@@ -100,27 +100,20 @@
 
   const handleLogout = async () => {
     try {
-      // 调用后端退出登录接口
-      await userApi.logout()
-      
-      // 清除前端状态
-      loginUserStore.setLoginUser('未登录')
-      
-      // 清除前端 cookie
-      document.cookie = 'JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
-      
-      // 跳转到登录页
+      await loginUserStore.logout()
       router.push('/login')
     } catch (error) {
       console.error('退出登录失败:', error)
-      // 即使后端接口失败，也清除前端状态
-      loginUserStore.setLoginUser('未登录')
-      router.push('/login')
     }
   }
 
   const jumpToUserCenter = async () => {
+    console.log('跳转前确认用户身份',loginUserStore.loginUser.role)
+    if (loginUserStore.loginUser.role === 'student') {
       router.push('/user/center');
+    } else {
+      router.push('/user/attendance');
+    }
   }
 
   </script>

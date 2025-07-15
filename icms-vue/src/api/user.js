@@ -58,5 +58,8 @@ export const userApi = {
     // 重置密码
     resetPassword(data) {
         return request.post('user/reset-password', data);
-    }
+    },
+
+    
+
 }

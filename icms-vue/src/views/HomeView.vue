@@ -6,9 +6,6 @@
       <div class="title-en animate__animated animate__backInUp">Intelligent Classroom Monitoring System</div>
       <a-button class="title-btn animate__animated animate__backInUp" ghost>开发版本</a-button>
     </div>
-    <div> 
-      <button @click="navigate('userCenter')">用户中心</button>
-    </div>
     <!-- Option-bar 放在背景图片下方 -->
     <div class="option-bar">
       <div class="option-item" @click="navigate('apiResponse')">

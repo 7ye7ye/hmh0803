@@ -18,7 +18,7 @@ public interface UserService extends IService<User> {
          * @param checkPassword 确认密码
          * @return 新用户id
          */
-        int userRegister(String username, String password, String checkPassword,String faceEmbedding);
+        int userRegister(String username, String password, String checkPassword,String faceEmbedding,String role);
 
         /**
          *
@@ -26,7 +26,7 @@ public interface UserService extends IService<User> {
          * @param password
          * @return 脱敏后的用户信息
          */
-        User userLogin(String username, String password, HttpServletRequest request,String faceEmbedding);
+        User userLogin(String username, String password, HttpServletRequest request,String faceImage);
 
         /**
          * 用户脱敏
@@ -34,7 +34,7 @@ public interface UserService extends IService<User> {
          * @param originUser 未脱敏用户
          * @return 安全用户信息
          */
-        public User getSaftyUser(User originUser);
+         User getSaftyUser(User originUser);
 
         /**
          *

@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from facial_recognition import facial
 from facial_recognition.facial import router as facial_stream_router
 from facial_recognition.facial_login import router as facial_login_router
 import fastapi_cdn_host
@@ -22,7 +21,9 @@ origins = [
     "http://localhost",
     "http://localhost:8087",
     "http://localhost:8085",
-    "*"  # 开发时可以允许所有源
+    "*",  # 开发时可以允许所有源
+    "http://121.36.44.77:8090 ",
+    "http://121.36.44.77:8085"
 ]
 
 # 将 CORS 中间件添加到你的 FastAPI 应用中

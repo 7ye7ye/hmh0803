@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted,computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted} from 'vue'
 import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { message } from 'ant-design-vue'
@@ -104,8 +104,8 @@ const fetchUserInfo = async () => {
 }
 
 const signinInfo = reactive({
-  username: computed(() => loginUserStore.loginUser.username), // 使用计算属性确保实时更新
-  faceImage: null
+  username:loginUserStore.loginUser.username, // 使用计算属性确保实时更新
+  snapshot_url: null
 })
 
 // 初始化摄像头
@@ -142,13 +142,20 @@ const handleFaceCapture = async () => {
       canvas.height = videoRef.value.videoHeight
       canvas.getContext('2d').drawImage(videoRef.value, 0, 0)
       const faceImage = canvas.toDataURL('image/jpeg', 0.8)
-      signinInfo.faceImage = faceImage
+
+      // 准备签到数据，直接使用base64图片数据
+      signinInfo.faceImage = faceImage  // base64格式的图片数据
+      
       // 调用签到接口
-      const response = await userApi.signin(signinInfo)
+      const response = await userApi.signin({
+        username: loginUserStore.loginUser.username,
+        faceImage: faceImage,  // 直接发送base64数据
+        timestamp: new Date().toISOString()
+      })
       console.log(response)
 
       if (response) {
-        userInfo.value.faceImage = faceImage
+        userInfo.value.faceImage = faceImage  // 保存base64数据用于显示
         message.success('签到成功')
       } else {
         message.error(response.data.message || '签到失败')

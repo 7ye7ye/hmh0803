@@ -99,7 +99,7 @@ async def compare_face(request: CompareRequest):
         # 设置阈值（根据实际情况调整）
         # 对于Facenet512，通常：
         # - 余弦相似度：> 0.4 为匹配
-        # - 欧氏距离：< 10 为匹配
+        # - 欧氏距离：< 20 为匹配
         cosine_threshold = 0.4
         distance_threshold = 20.0
 
@@ -242,7 +242,7 @@ async def compare_face_signin(request: Request, signin_request: SigninRequest):
 
         # 设置阈值（根据实际情况调整）
         cosine_threshold = 0.4
-        distance_threshold = 20.0
+        distance_threshold = 20
 
         # 综合判断
         is_verified = bool(similarity > cosine_threshold and distance < distance_threshold)
