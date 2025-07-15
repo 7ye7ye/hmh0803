@@ -52,7 +52,7 @@
           </div>
 
           <!-- 注册提交按钮 -->
-          <button class="form_button button submit" @click.prevent="handleRegister">注 册</button>
+          <button class="form_button button submit" @click.prevent="onRegisterClick">注 册</button>
         </form>
       </div>
 
@@ -143,6 +143,25 @@
       </div>
     </div>
   </div>
+  <a-modal 
+    v-model:visible="showSlideVerify" 
+    title="请完成滑动验证" 
+    :footer="null"
+    :closable="false"
+    :maskClosable="false"
+    width="400px"
+  >
+    <div class="slide-verify-container">
+      <vue3-slide-verify
+        ref="slideVerifyRef"
+        :accuracy="5"
+        :slider-text="'向右滑动完成验证'"
+        @success="onVerifySuccess"
+        @fail="onVerifyFail"
+        @refresh="onVerifyRefresh"
+      ></vue3-slide-verify>
+    </div>
+  </a-modal>
 </template>
 
 <script>
@@ -153,10 +172,48 @@ import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { aiApi } from '../../api/ai'
 import { message } from 'ant-design-vue';
+import Vue3SlideVerify from 'vue3-slide-verify'
+import 'vue3-slide-verify/dist/style.css'
+
 
 export default defineComponent({
   name: 'LoginView',
+    components: {
+    Vue3SlideVerify
+  },
   setup() {
+    // 添加滑动验证码相关状态
+    const showSlideVerify = ref(false)
+    const slideVerifyRef = ref(null)
+    const pendingRegister = ref(false) // 标记是否等待验证后注册
+
+    // 修改注册按钮点击事件
+    const onRegisterClick = () => {
+      
+      pendingRegister.value = true
+      showSlideVerify.value = true
+    }
+
+    // 验证成功回调
+    const onVerifySuccess = () => {
+      showSlideVerify.value = false
+      if (pendingRegister.value) {
+        handleRegister()
+      }
+      pendingRegister.value = false
+    }
+
+    // 验证失败回调
+    const onVerifyFail = () => {
+      showMessage('验证失败，请重试')
+      slideVerifyRef.value?.refresh()
+    }
+
+    // 验证刷新回调
+    const onVerifyRefresh = () => {
+      console.log('验证码已刷新')
+    }
+    
     // 初始化路由和状态管理
     const router = useRouter()
     const route = useRoute()
@@ -464,6 +521,12 @@ export default defineComponent({
 
     // 返回组件所需的响应式数据和方法
     return {
+      showSlideVerify,
+      slideVerifyRef,
+      onRegisterClick,
+      onVerifySuccess,
+      onVerifyFail,
+      onVerifyRefresh,
       videoFeedUrl,
       loginForm,
       registerForm,
@@ -489,11 +552,20 @@ export default defineComponent({
     }
   }
 })
+
 </script>
 
 <style scoped>
 /* 导入字体图标库 */
 @import url('./fonts/iconfont.css');
+
+.slide-verify-container {
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 150px;
+}
 
 .stream-image {
   width: 100%;
@@ -617,7 +689,7 @@ export default defineComponent({
   width: 100%;
   max-width: 400px;
   height: 45px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   padding: 0 20px;
   font-size: 14px;
   border: 2px solid #eee;
@@ -637,7 +709,7 @@ export default defineComponent({
 .face-capture {
   width: 100%;
   max-width: 400px;
-  margin: 20px auto;
+  margin: 10px auto;
   position: relative;
 }
 
@@ -778,7 +850,7 @@ export default defineComponent({
   width: 100%;
   max-width: 400px;
   height: 45px;
-  margin-top: 15px;
+  margin-top: 10px;
   border-radius: 22px;
   font-size: 15px;
   font-weight: 600;

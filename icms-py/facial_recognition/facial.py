@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # 定义视频流地址、人脸识别模型等常量
-VIDEO_STREAM_URL ="rtmp://121.36.44.77:1935/live/livestream"
+VIDEO_STREAM_URL ="rtmp://120.46.210.148:1935/live/livestream"
 MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = 'mtcnn'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
