@@ -153,6 +153,7 @@ import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { aiApi } from '../../api/ai'
 import { message } from 'ant-design-vue';
+import { videoApi } from '@/api/video'
 
 export default defineComponent({
   name: 'LoginView',
@@ -194,6 +195,8 @@ export default defineComponent({
     const isLoginPlayerReady = ref(false)    // 登录播放器就绪状态
     const errorMessage = ref('')        // 错误消息
     const isProcessing = ref(false)     // 处理状态标志
+    // 失败计数器
+    const failCount = ref(0)
 
     // 登录表单数据
     const loginForm = reactive({
@@ -316,10 +319,36 @@ export default defineComponent({
         if (response.data.faceEmbedding) {
           loginForm.faceEmbedding = response
           showMessage('人脸验证信息采集成功')
+          failCount.value = 0 // 成功则重置失败计数
         }
       } catch (error) {
         console.error('人脸验证采集失败:', error)
+        failCount.value++
         showMessage('人脸验证采集失败，请确认该账户是否为本人')
+        // 超过3次则上报告警
+        if (failCount.value >=1) {
+          // 构造告警参数
+          const alertData = {
+            rule_id: 'stranger-login',
+            level: 'ALERT',
+            danger_level: 'low',
+            source_type: 'Stranger attack',
+            event_time: new Date().toISOString(),
+            message: '检测到陌生人恶意登录他人账号',
+            details: JSON.stringify({ username: loginForm.username, role: loginForm.role }),
+            frame_idx: 0,
+            acknowledged: false,
+            related_events: JSON.stringify([]),
+            photo: loginForm.faceImage // 假设faceImage为base64
+          }
+          try {
+            await videoApi.reportStrangerAlert(alertData)
+            showMessage('已上报陌生人登录告警')
+            failCount.value = 0 // 上报后重置
+          } catch (e) {
+            showMessage('告警上报失败')
+          }
+        }
       } finally {
         isProcessing.value = false
       }
@@ -479,7 +508,8 @@ export default defineComponent({
       resetLoginCapture,
       isRegisterFormValid,
       isLoginFormValid,
-      isProcessing
+      isProcessing,
+      failCount
     }
   }
 })
