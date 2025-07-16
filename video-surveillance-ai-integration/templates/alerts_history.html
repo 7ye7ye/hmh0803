@@ -658,15 +658,16 @@
             tbody.innerHTML = '';
             alerts.forEach(alert => {
                 let levelText = '';
-                if (alert.danger_level === 'low') levelText = '低';
-                else if (alert.danger_level === 'medium') levelText = '中';
-                else if (alert.danger_level === 'high') levelText = '高';
-                else levelText = alert.danger_level || '';
+                let levelColor = '';
+                if (alert.danger_level === 'low') { levelText = '低'; levelColor = '#2196f3'; }
+                else if (alert.danger_level === 'medium') { levelText = '中'; levelColor = '#ffd600'; }
+                else if (alert.danger_level === 'high') { levelText = '高'; levelColor = '#e74c3c'; }
+                else { levelText = alert.danger_level || ''; levelColor = '#888'; }
                 tbody.innerHTML += `
                   <tr>
                     <td>${alert.id}</td>
                     <td class="type-col">${alert.source_type || ''}</td>
-                    <td class="level-col">${levelText}</td>
+                    <td class="level-col" style="color: ${levelColor}; font-weight:bold;">${levelText}</td>
                     <td class="time-col">${alert.datetime || alert.event_time || ''}</td>
                     <td class="details-col" title="${alert.message || ''}" onclick="showDetailModal(this)">${alert.message || ''}</td>
                     <td class="status-col">

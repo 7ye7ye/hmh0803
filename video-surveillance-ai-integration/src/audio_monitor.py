@@ -10,6 +10,7 @@ import sys
 import importlib
 import tensorflow_hub as hub
 import collections
+import typing
 
 # 路径配置（请根据实际情况调整）
 YAMNET_MODEL_PATH = os.path.join(os.path.dirname(__file__), 'yamnet.h5')  # 需提前下载YAMNet权重文件
@@ -30,17 +31,24 @@ yamnet_classes = load_class_map(CLASS_MAP_PATH)
 
 # 优先本地加载YAMNet模型
 YAMNET_LOCAL_DIR = os.path.join(os.path.dirname(__file__), 'yamnet_1')
+yamnet_model = None
+yamnet_infer = None
 try:
     if os.path.exists(YAMNET_LOCAL_DIR):
         yamnet_model = hub.load(YAMNET_LOCAL_DIR)
+        yamnet_model = typing.cast(typing.Any, yamnet_model)
+        yamnet_infer = yamnet_model.signatures['serving_default'] if hasattr(yamnet_model, 'signatures') and isinstance(yamnet_model.signatures, dict) else None
         print(f"[音频监控] 已从本地加载YAMNet模型: {YAMNET_LOCAL_DIR}")
     else:
         print("[音频监控] 未找到本地YAMNet模型，尝试在线加载...")
         yamnet_model = hub.load('https://tfhub.dev/google/yamnet/1')
+        yamnet_model = typing.cast(typing.Any, yamnet_model)
+        yamnet_infer = yamnet_model.signatures['serving_default'] if hasattr(yamnet_model, 'signatures') and isinstance(yamnet_model.signatures, dict) else None
         print("[音频监控] 已在线加载YAMNet模型")
 except Exception as e:
     print(f"[音频监控] 加载YAMNet模型失败: {e}\n声学检测功能将被禁用。")
     yamnet_model = None
+    yamnet_infer = None
 
 # 你关心的类别
 TARGET_KEYWORDS = ['Scream', 'Shout', 'Yell', 'Fight', 'Argument', 'Siren', 'Emergency vehicle', 'Whistle', 'Speech', 'Child speech', 'Children shouting', 'Screaming']
@@ -48,27 +56,32 @@ TARGET_KEYWORDS = ['Scream', 'Shout', 'Yell', 'Fight', 'Argument', 'Siren', 'Eme
 # 声学检测参数
 NOISE_DETECT_THRESHOLD = 0.01  # 声音置信度阈值（极低，调试用）
 NOISE_ACCUM_SECONDS = 10.0     # 喧哗累计时长阈值（秒）
-NOISE_VOLUME_THRESHOLD = 0.15  # 音量阈值（需根据实际环境调整）
+NOISE_VOLUME_THRESHOLD = 0.10  # 音量阈值（更灵敏）
 NOISE_REQUIRED_RATIO = 0.5     # 10秒内有一半时间为噪音
 NOISE_WINDOW_SIZE = 30         # 30秒滑动窗口，假设每秒采样一次
-NOISE_REQUIRED_SECONDS = 25    # 30秒内有25秒为噪音才告警
+NOISE_REQUIRED_SECONDS = 20    # 30秒内有20秒为噪音就告警（更灵敏）
 noise_window = collections.deque(maxlen=NOISE_WINDOW_SIZE)
 
 # 声学事件检测
 def detect_audio_event(audio_data, sr):
-    # yamnet_model 为空时直接返回
-    if yamnet_model is None:
+    # yamnet_infer 为空时直接返回
+    if yamnet_infer is None:
         return [], []
     # 预处理到16kHz单通道
     if sr != 16000:
         audio_data = librosa.resample(audio_data, orig_sr=sr, target_sr=16000)
     # 保证waveform是一维float32
     waveform = audio_data.astype(np.float32)
-    if yamnet_model is None:
+    if yamnet_infer is None:
         return [], []
     try:
-        scores, embeddings, spectrogram = yamnet_model(waveform)
-        mean_scores = np.mean(scores, axis=0)
+        # 修正YAMNet调用方式
+        waveform_tensor = tf.convert_to_tensor(waveform.reshape(1, -1))
+        result = yamnet_infer(waveform_tensor)
+        scores = result['scores'].numpy()[0]
+        embeddings = result['embeddings'].numpy()[0]
+        spectrogram = result['spectrogram'].numpy()[0]
+        mean_scores = np.mean(scores, axis=0) if scores.ndim > 1 else scores
         detected_labels = []
         detected_scores = []
         for i, score in enumerate(mean_scores):
@@ -99,6 +112,11 @@ def audio_monitor_callback(alert_callback, duration=1, samplerate=16000):
         while True:
             audio_chunk = q.get()
             audio_data = audio_chunk.flatten()
+            # 强制归一化，防止volume大于1
+            max_abs = np.max(np.abs(audio_data))
+            if max_abs > 1.0:
+                audio_data = audio_data / max_abs
+            audio_data = np.clip(audio_data, -1.0, 1.0)
             labels, scores = detect_audio_event(audio_data, samplerate)
             now = time_module.time()  # 避免与sounddevice的time冲突
             # 计算音量（分贝）

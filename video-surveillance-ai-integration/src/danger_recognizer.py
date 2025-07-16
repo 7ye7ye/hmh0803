@@ -725,24 +725,24 @@ class DangerRecognizer:
                         condition_details = []
                         if not camera_motion_detected:
                             if max_vertical_motion > 12 or max_horizontal_motion > 25:
-                                confidence += 0.4
+                                confidence += 0.3
                                 if max_vertical_motion > 12:
                                     condition_details.append("垂直向下运动大")
                                 if max_horizontal_motion > 25:
                                     condition_details.append("水平运动大（横向倒地）")
                             if earlier_avg > 8 and recent_avg < 0.5:  # 更严格
-                                confidence += 0.4
+                                confidence += 0.3
                                 condition_details.append("运动后静止(更严格)")
                             if prev_features > 0 and current_features > prev_features * 1.5 and current_features > 5:
-                                confidence += 0.3
+                                confidence += 0.2
                                 condition_details.append("特征点突增")
                             vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 5)
                             horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)
                             if vertical_motion_count >= 3 or horizontal_motion_count >= 3:
-                                confidence += 0.3
+                                confidence += 0.2
                                 condition_details.append("运动持续")
                             if max_vertical_motion > 18 or max_horizontal_motion > 18:
-                                confidence += 0.2
+                                confidence += 0.1
                                 condition_details.append("高幅度运动")
                             # 新增：高度显著下降判据
                             if object_detections:
@@ -754,15 +754,17 @@ class DangerRecognizer:
                                     height = bbox[3] - bbox[1]
                                     prev_max_height = self.person_max_heights.get(person_id, height)
                                     if height < prev_max_height * 0.7:  # 高度下降30%
-                                        confidence += 0.3
+                                        confidence += 0.1
                                         condition_details.append("高度显著下降")
                                     self.person_max_heights[person_id] = max(prev_max_height, height)
                         else:
                             confidence = 0.0
                             condition_details.append("检测到摄像头移动，忽略摔倒检测")
+                        # 限制置信度最大为1.0
+                        confidence = min(confidence, 1.0)
                         fall_cooldown_frames = 40  # 冷却时间加长
                         cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
-                        if (confidence >= 0.95 and cooldown_ok):
+                        if (confidence >= 0.7 and cooldown_ok):
                             print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
                             print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
                             if object_detections:
