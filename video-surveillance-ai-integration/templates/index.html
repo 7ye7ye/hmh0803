@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室视频监控系统</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .main {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            align-items: center; /* 新增：让主内容垂直居中 */
+        }
+        .video-container {
+            flex: 1 1 70%;
+            /* background-color: #1f2022; */ /* 移除黑色背景 */
+            border-radius: 5px;
+            overflow: hidden;
+            min-height: 480px;
+            position: relative;
+            height: 100%; /* 新增：让视频区尽量填满 */
+            margin-top: 60px; /* 新增：整体下移 */
+            /* 移除放大和居中样式 */
+        }
+        .info-panel {
+            flex: 1 1 25%;
+            margin-left: 20px;
+            background-color: white;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.stop {
+            background-color: #e74c3c;
+        }
+        button.stop:hover {
+            background-color: #c0392b;
+        }
+        button.pause {
+            background-color: #f39c12;
+        }
+        button.pause:hover {
+            background-color: #d35400;
+        }
+        .stat-box {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+        }
+        .stat-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .alert-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .alert-item {
+            padding: 10px;
+            border-left: 4px solid #e74c3c;
+            background-color: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 0 4px 4px 0;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .alert-item.handled {
+            border-left-color: #27ae60;
+            background-color: #e8f5e8;
+        }
+        /* 危险等级颜色 */
+        .alert-item.danger-low {
+            border-left-color: #ffd600; /* 黄色 */
+            background-color: #fffde7;
+        }
+        .alert-item.danger-medium {
+            border-left-color: #2196f3; /* 蓝色 */
+            background-color: #e3f2fd;
+        }
+        .alert-item.danger-high {
+            border-left-color: #e74c3c; /* 红色 */
+            background-color: #fdf2f2;
+        }
+        .alert-item.handled {
+            border-left-color: #27ae60 !important; /* 绿色 */
+            background-color: #e8f5e8 !important;
+        }
+        .alert-item.danger-low.handled,
+        .alert-item.danger-medium.handled,
+        .alert-item.danger-high.handled {
+            border-left-color: #27ae60 !important;
+            background-color: #e8f5e8 !important;
+        }
+        /* 危险等级文字颜色 */
+        .alert-item.danger-low .alert-type {
+            color: #ffd600;
+        }
+        .alert-item.danger-medium .alert-type {
+            color: #2196f3;
+        }
+        .alert-item.danger-high .alert-type {
+            color: #e74c3c;
+        }
+        .alert-item.handled .alert-type {
+            color: #27ae60 !important;
+        }
+        .alert-desc {
+            margin-top: 5px;
+            font-size: 14px;
+        }
+        .alert-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: white;
+        }
+        .alert-status.unhandled {
+            background-color: #e74c3c;
+        }
+        .alert-status.handled {
+            background-color: #27ae60;
+        }
+        .alert-handle-btn {
+            margin-top: 8px;
+            padding: 4px 8px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            color: white;
+        }
+        .alert-handle-btn.handle {
+            background-color: #27ae60;
+        }
+        .alert-handle-btn.unhandle {
+            background-color: #e74c3c;
+        }
+        .alert-handle-btn:hover {
+            opacity: 0.8;
+        }
+        .alert-stats {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .alert-stat-box {
+            flex: 1;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+        }
+        .alert-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .alert-stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 2px;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-running {
+            background-color: #2ecc71;
+        }
+        .status-stopped {
+            background-color: #e74c3c;
+        }
+        .status-paused {
+            background-color: #f39c12;
+        }
+        .video-stream {
+            width: 100%;
+            height: 100%; /* 新增：让视频填满容器 */
+            display: block;
+            object-fit: contain;
+            /* background: #1f2022; */ /* 移除黑色背景 */
+            cursor: crosshair;
+        }
+        
+        /* 新增：配置面板样式 */
+        .config-panel {
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+        }
+        .config-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .config-item {
+            margin-bottom: 15px;
+        }
+        .config-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #495057;
+        }
+        .config-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .config-input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        .config-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .config-btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .config-btn.primary {
+            background-color: #3498db;
+        }
+        .config-btn.secondary {
+            background-color: #6c757d;
+        }
+        .config-btn.danger {
+            background-color: #e74c3c;
+        }
+        .config-btn:hover {
+            opacity: 0.8;
+        }
+        
+        /* 新增：选择框样式 */
+        .selection-box {
+            position: absolute;
+            border: 2px dashed #3498db;
+            background-color: rgba(52, 152, 219, 0.1);
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 992px) {
+            .main {
+                flex-direction: column;
+            }
+            .info-panel {
+                margin-left: 0;
+                margin-top: 20px;
+            }
+        }
+        .history-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 4px;
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            margin-top: 4px;
+        }
+        .history-btn:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>教室视频监控系统</h1>
+            <p>运动分析 + 危险行为检测 + AI识别</p>
+        </header>
+        <div class="main">
+            <div class="video-container">
+                <div class="loading">正在连接视频流...</div>
+                <img class="video-stream" src="{{ url_for('video_feed') }}" alt="视频流" id="video-stream">
+                <canvas id="region-canvas" style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:10;"></canvas>
+                <div class="selection-box" id="selection-box" style="display: none;"></div>
+            </div>
+            <div class="info-panel">
+                <h2>系统状态</h2>
+                <div class="system-status">
+                    <p><span class="status-indicator status-running" id="status-dot"></span> <span id="status-text">运行中</span></p>
+                </div>
+                
+                <!-- 新增：配置面板 -->
+                <div class="config-panel">
+                    <div class="config-title">警戒区域配置</div>
+                    <div class="config-item">
+                        <label class="config-label">停留时间阈值（秒）:</label>
+                        <input type="number" class="config-input" id="dwell-time-threshold" value="1.0" min="0.1" max="60.0" step="0.1">
+                    </div>
+                    <div class="config-item">
+                        <label class="config-label">接近危险区域距离阈值（像素）:</label>
+                        <input type="number" class="config-input" id="approach-distance-threshold" value="50" min="1" max="500" step="1">
+                    </div>
+                    <div class="config-buttons">
+                        <button class="config-btn primary" id="set-threshold-btn">设置阈值</button>
+                        <button class="config-btn secondary" id="start-selection-btn">开始框选</button>
+                        <button class="config-btn danger" id="reset-region-btn">重置区域</button>
+                        <button class="config-btn primary" id="set-approach-threshold-btn">设置接近距离阈值</button>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #6c757d;">
+                        提示：点击"开始框选"后在视频上拖拽鼠标框选警戒区域
+                    </div>
+                    
+                    <!-- 新增：手动输入坐标点配置 -->
+                    <div style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
+                        <div class="config-title">手动输入坐标点</div>
+                        <div class="config-item">
+                            <label class="config-label">坐标点列表:</label>
+                            <div id="coordinate-points" style="margin-bottom: 10px;">
+                                <!-- 坐标点输入框会动态添加到这里 -->
+                            </div>
+                            <div class="config-buttons">
+                                <button class="config-btn secondary" id="add-point-btn">添加点</button>
+                                <button class="config-btn primary" id="create-polygon-btn">创建多边形</button>
+                                <button class="config-btn secondary" id="clear-points-btn">清空点</button>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d;">
+                            提示：输入坐标点后点击"创建多边形"生成警戒区域
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stat-row" style="display: flex; gap: 10px;">
+                    <div class="stat-box" style="flex: 1;">
+                        <div class="stat-title">实时帧率</div>
+                        <div class="stat-value" id="fps">0.0</div>
+                    </div>
+                    <div class="stat-box" style="flex: 1;">
+                        <div class="stat-title">总帧数</div>
+                        <div class="stat-value" id="frame-count">0</div>
+                    </div>
+                </div>
+                <div class="stat-row" style="display: flex; gap: 10px;">
+                    <div class="stat-box" style="flex: 1;">
+                        <div class="stat-title">处理帧数</div>
+                        <div class="stat-value" id="processed-count">0</div>
+                    </div>
+                    <div class="stat-box" style="flex: 1;">
+                        <div class="stat-title">运行时间</div>
+                        <div class="stat-value" id="running-time">0秒</div>
+                    </div>
+                </div>
+                
+                <!-- 新增：告警处理统计 -->
+                <div class="alert-stats">
+                    <div class="alert-stat-box">
+                        <div class="alert-stat-value" id="total-alerts">0</div>
+                        <div class="alert-stat-label">总告警</div>
+                    </div>
+                    <div class="alert-stat-box">
+                        <div class="alert-stat-value" id="handled-alerts" style="color: #27ae60;">0</div>
+                        <div class="alert-stat-label">已处理</div>
+                    </div>
+                    <div class="alert-stat-box">
+                        <div class="alert-stat-value" id="unhandled-alerts" style="color: #e74c3c;">0</div>
+                        <div class="alert-stat-label">未处理</div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="start-btn">启动</button>
+                    <button id="pause-btn" class="pause">暂停</button>
+                    <button id="stop-btn" class="stop">停止</button>
+                </div>
+                <div class="alert-list" id="alert-list">
+                    <!-- 告警列表会通过JavaScript动态添加 -->
+                </div>
+                <div style="text-align: right; margin-top: 12px;">
+                  <button onclick="window.location.href='/alerts/history'" class="history-btn">
+                    查看历史告警
+                  </button>
+                </div>
+                <!-- 告警详情弹窗 -->
+                <div id="alert-modal" style="display:none;position:fixed;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;padding:24px 32px;border-radius:8px;min-width:300px;max-width:90vw;box-shadow:0 4px 24px rgba(0,0,0,0.2);position:relative;">
+                        <span id="alert-modal-close" style="position:absolute;right:12px;top:8px;cursor:pointer;font-size:20px;">×</span>
+                        <h3 style="margin-top:0;">告警详情</h3>
+                        <div id="alert-modal-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM元素
+            const fpsElement = document.getElementById('fps');
+            const processedCountElement = document.getElementById('processed-count');
+            const alertCountElement = document.getElementById('alert-count');
+            const runningTimeElement = document.getElementById('running-time');
+            const statusDotElement = document.getElementById('status-dot');
+            const statusTextElement = document.getElementById('status-text');
+            const alertListElement = document.getElementById('alert-list');
+            const startBtn = document.getElementById('start-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const stopBtn = document.getElementById('stop-btn');
+            const loadingElement = document.querySelector('.loading');
+            const videoElement = document.querySelector('.video-stream');
+            const frameCountElement = document.getElementById('frame-count');
+            
+            // 新增：配置相关元素
+            const dwellTimeThresholdInput = document.getElementById('dwell-time-threshold');
+            const setThresholdBtn = document.getElementById('set-threshold-btn');
+            const startSelectionBtn = document.getElementById('start-selection-btn');
+            const resetRegionBtn = document.getElementById('reset-region-btn');
+            const selectionBox = document.getElementById('selection-box');
+            
+            // 新增：坐标点相关元素
+            const coordinatePointsContainer = document.getElementById('coordinate-points');
+            const addPointBtn = document.getElementById('add-point-btn');
+            const createPolygonBtn = document.getElementById('create-polygon-btn');
+            const clearPointsBtn = document.getElementById('clear-points-btn');
+            
+            // 新增：坐标点数组
+            let coordinatePoints = [];
+            
+            // 新增：框选相关变量
+            let isSelecting = false;
+            let selectionStart = { x: 0, y: 0 };
+            let currentSelection = { x: 0, y: 0, width: 0, height: 0 };
+            
+            // 系统状态
+            let systemState = 'running';
+            let previousAlertCount = 0;
+            
+            // 图像加载处理
+            videoElement.onload = function() {
+                loadingElement.style.display = 'none';
+            };
+            videoElement.onerror = function() {
+                loadingElement.textContent = '视频流连接失败，请检查系统状态';
+            };
+            
+            // 新增：设置时间阈值
+            function setDwellTimeThreshold() {
+                const threshold = parseFloat(dwellTimeThresholdInput.value);
+                if (isNaN(threshold) || threshold <= 0) {
+                    alert('请输入有效的时间阈值（大于0的数字）');
+                    return;
+                }
+                
+                fetch('/config/dwell_time_threshold', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ threshold: threshold }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('时间阈值设置成功！');
+                    } else {
+                        alert('设置失败：' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('设置时间阈值失败:', err);
+                    alert('设置失败，请检查网络连接');
+                });
+            }
+            
+            // 新增：开始框选
+            function startSelection() {
+                isSelecting = true;
+                startSelectionBtn.textContent = '框选中...';
+                startSelectionBtn.disabled = true;
+                videoElement.style.cursor = 'crosshair';
+                alert('请在视频上拖拽鼠标框选警戒区域');
+            }
+            
+            // 新增：重置警戒区域
+            function resetAlertRegion() {
+                fetch('/config/reset_alert_region', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('警戒区域已重置！');
+                        // 刷新视频流以显示更新
+                        videoElement.src = '/video_feed?' + new Date().getTime();
+                    } else {
+                        alert('重置失败：' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('重置警戒区域失败:', err);
+                    alert('重置失败，请检查网络连接');
+                });
+            }
+            
+            // 新增：设置警戒区域
+            function setAlertRegion(region) {
+                fetch('/config/alert_region', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ region: region }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('警戒区域设置成功！');
+                        // 刷新视频流以显示更新
+                        videoElement.src = '/video_feed?' + new Date().getTime();
+                    } else {
+                        alert('设置失败：' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('设置警戒区域失败:', err);
+                    alert('设置失败，请检查网络连接');
+                });
+            }
+            
+            // 新增：鼠标事件处理
+            videoElement.addEventListener('mousedown', function(e) {
+                if (!isSelecting) return;
+                
+                const rect = videoElement.getBoundingClientRect();
+                selectionStart.x = e.clientX - rect.left;
+                selectionStart.y = e.clientY - rect.top;
+                
+                selectionBox.style.left = selectionStart.x + 'px';
+                selectionBox.style.top = selectionStart.y + 'px';
+                selectionBox.style.width = '0px';
+                selectionBox.style.height = '0px';
+                selectionBox.style.display = 'block';
+            });
+            
+            videoElement.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+                
+                const rect = videoElement.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                const width = Math.abs(currentX - selectionStart.x);
+                const height = Math.abs(currentY - selectionStart.y);
+                const left = Math.min(currentX, selectionStart.x);
+                const top = Math.min(currentY, selectionStart.y);
+                
+                selectionBox.style.left = left + 'px';
+                selectionBox.style.top = top + 'px';
+                selectionBox.style.width = width + 'px';
+                selectionBox.style.height = height + 'px';
+                
+                currentSelection = { x: left, y: top, width: width, height: height };
+            });
+            
+            videoElement.addEventListener('mouseup', function(e) {
+                if (!isSelecting) return;
+                
+                // 计算实际视频坐标（考虑视频缩放）
+                const videoRect = videoElement.getBoundingClientRect();
+                const videoWidth = videoElement.naturalWidth;
+                const videoHeight = videoElement.naturalHeight;
+                
+                const scaleX = videoWidth / videoRect.width;
+                const scaleY = videoHeight / videoRect.height;
+                
+                const region = [
+                    [Math.round(currentSelection.x * scaleX), Math.round(currentSelection.y * scaleY)],
+                    [Math.round((currentSelection.x + currentSelection.width) * scaleX), Math.round(currentSelection.y * scaleY)],
+                    [Math.round((currentSelection.x + currentSelection.width) * scaleX), Math.round((currentSelection.y + currentSelection.height) * scaleY)],
+                    [Math.round(currentSelection.x * scaleX), Math.round((currentSelection.y + currentSelection.height) * scaleY)]
+                ];
+                
+                // 设置警戒区域
+                setAlertRegion(region);
+                
+                // 重置框选状态
+                isSelecting = false;
+                startSelectionBtn.textContent = '开始框选';
+                startSelectionBtn.disabled = false;
+                videoElement.style.cursor = 'default';
+                selectionBox.style.display = 'none';
+            });
+            
+            // 新增：添加坐标点
+            function addCoordinatePoint() {
+                const pointIndex = coordinatePoints.length;
+                const pointDiv = document.createElement('div');
+                pointDiv.className = 'config-item';
+                pointDiv.style.display = 'flex';
+                pointDiv.style.gap = '10px';
+                pointDiv.style.alignItems = 'center';
+                pointDiv.style.marginBottom = '5px';
+                
+                const pointLabel = document.createElement('span');
+                pointLabel.textContent = `点${pointIndex + 1}:`;
+                pointLabel.style.fontSize = '12px';
+                pointLabel.style.fontWeight = 'bold';
+                pointLabel.style.minWidth = '30px';
+                
+                const xInput = document.createElement('input');
+                xInput.type = 'number';
+                xInput.placeholder = 'X坐标';
+                xInput.className = 'config-input';
+                xInput.style.flex = '1';
+                xInput.style.padding = '4px 8px';
+                xInput.style.fontSize = '12px';
+                
+                const yInput = document.createElement('input');
+                yInput.type = 'number';
+                yInput.placeholder = 'Y坐标';
+                yInput.className = 'config-input';
+                yInput.style.flex = '1';
+                yInput.style.padding = '4px 8px';
+                yInput.style.fontSize = '12px';
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '删除';
+                removeBtn.className = 'config-btn danger';
+                removeBtn.style.padding = '4px 8px';
+                removeBtn.style.fontSize = '12px';
+                removeBtn.onclick = function() {
+                    coordinatePointsContainer.removeChild(pointDiv);
+                    coordinatePoints.splice(pointIndex, 1);
+                    updatePointLabels();
+                };
+                
+                pointDiv.appendChild(pointLabel);
+                pointDiv.appendChild(xInput);
+                pointDiv.appendChild(yInput);
+                pointDiv.appendChild(removeBtn);
+                
+                coordinatePointsContainer.appendChild(pointDiv);
+                coordinatePoints.push({ xInput, yInput, div: pointDiv });
+            }
+            
+            // 新增：更新坐标点标签
+            function updatePointLabels() {
+                coordinatePoints.forEach((point, index) => {
+                    const label = point.div.querySelector('span');
+                    label.textContent = `点${index + 1}:`;
+                });
+            }
+            
+            // 新增：清空坐标点
+            function clearCoordinatePoints() {
+                coordinatePointsContainer.innerHTML = '';
+                coordinatePoints = [];
+            }
+            
+            // 新增：创建多边形警戒区域
+            function createPolygonRegion() {
+                if (coordinatePoints.length < 3) {
+                    alert('至少需要3个点才能创建多边形！');
+                    return;
+                }
+                
+                const points = [];
+                for (let i = 0; i < coordinatePoints.length; i++) {
+                    const x = parseInt(coordinatePoints[i].xInput.value);
+                    const y = parseInt(coordinatePoints[i].yInput.value);
+                    
+                    if (isNaN(x) || isNaN(y)) {
+                        alert(`点${i + 1}的坐标输入无效，请输入数字！`);
+                        return;
+                    }
+                    
+                    points.push([x, y]);
+                }
+                
+                // 设置多边形警戒区域
+                setAlertRegion(points);
+            }
+            
+            // 新增：绑定配置按钮事件
+            setThresholdBtn.addEventListener('click', setDwellTimeThreshold);
+            startSelectionBtn.addEventListener('click', startSelection);
+            resetRegionBtn.addEventListener('click', resetAlertRegion);
+            
+            // 新增：设置接近危险区域距离阈值
+            const approachDistanceThresholdInput = document.getElementById('approach-distance-threshold');
+            const setApproachThresholdBtn = document.getElementById('set-approach-threshold-btn');
+            function setApproachDistanceThreshold() {
+                const threshold = parseInt(approachDistanceThresholdInput.value);
+                if (isNaN(threshold) || threshold <= 0) {
+                    alert('请输入有效的距离阈值（大于0的数字）');
+                    return;
+                }
+                fetch('/config/approach_distance_threshold', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ threshold: threshold }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('接近距离阈值设置成功！');
+                    } else {
+                        alert('设置失败：' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('设置接近距离阈值失败:', err);
+                    alert('设置失败，请检查网络连接');
+                });
+            }
+            setApproachThresholdBtn.addEventListener('click', setApproachDistanceThreshold);
+            
+            // 新增：绑定坐标点按钮事件
+            addPointBtn.addEventListener('click', addCoordinatePoint);
+            createPolygonBtn.addEventListener('click', createPolygonRegion);
+            clearPointsBtn.addEventListener('click', clearCoordinatePoints);
+            
+            // 更新状态UI
+            function updateStatusUI(status) {
+                statusDotElement.className = 'status-indicator';
+                if (status === 'running') {
+                    statusDotElement.classList.add('status-running');
+                    statusTextElement.textContent = '运行中';
+                } else if (status === 'stopped') {
+                    statusDotElement.classList.add('status-stopped');
+                    statusTextElement.textContent = '已停止';
+                } else if (status === 'paused') {
+                    statusDotElement.classList.add('status-paused');
+                    statusTextElement.textContent = '已暂停';
+                }
+            }
+            // 全局缓存alerts
+            let alertsCache = [];
+            
+            // 处理告警
+            function handleAlert(alertId, action) {
+                const url = action === 'handle' ? '/alerts/handle' : '/alerts/unhandle';
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ alert_id: alertId }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('处理结果:', data);
+                    // 重新获取告警列表和统计
+                    fetchAlerts();
+                    fetchAlertStats();
+                })
+                .catch(err => {
+                    console.error('处理请求失败:', err);
+                });
+            }
+            
+            // 获取告警处理统计
+            function fetchAlertStats() {
+                fetch('/alerts/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('total-alerts').textContent = data.total_alerts;
+                        document.getElementById('handled-alerts').textContent = data.handled_alerts;
+                        document.getElementById('unhandled-alerts').textContent = data.unhandled_alerts;
+                    })
+                    .catch(err => {
+                        console.error('获取告警统计失败:', err);
+                    });
+            }
+            
+            // 添加告警
+            function addAlert(alert, index) {
+                const alertItem = document.createElement('div');
+                alertItem.className = 'alert-item';
+                
+                // 添加危险等级样式
+                if (alert.danger_level) {
+                    alertItem.classList.add(`danger-${alert.danger_level}`);
+                }
+                
+                if (alert.handled) {
+                    alertItem.classList.add('handled');
+                }
+                alertItem.setAttribute('data-index', index);
+                alertItem.style.cursor = 'pointer';
+                
+                const alertTime = document.createElement('div');
+                alertTime.className = 'alert-time';
+                alertTime.textContent = alert.time;
+                
+                const alertType = document.createElement('div');
+                alertType.className = 'alert-type';
+                alertType.textContent = alert.type || '未知类型';
+                
+                const alertDesc = document.createElement('div');
+                alertDesc.className = 'alert-desc';
+                alertDesc.textContent = alert.desc || '系统检测到潜在危险行为';
+                
+                // 添加状态标签
+                const alertStatus = document.createElement('div');
+                alertStatus.className = 'alert-status';
+                alertStatus.classList.add(alert.handled ? 'handled' : 'unhandled');
+                alertStatus.textContent = alert.handled ? '已处理' : '未处理';
+                
+                // 添加处理按钮
+                const handleBtn = document.createElement('button');
+                handleBtn.className = 'alert-handle-btn';
+                handleBtn.classList.add(alert.handled ? 'unhandle' : 'handle');
+                handleBtn.textContent = alert.handled ? '取消处理' : '标记处理';
+                handleBtn.onclick = function(e) {
+                    e.stopPropagation(); // 阻止事件冒泡
+                    handleAlert(alert.id, alert.handled ? 'unhandle' : 'handle');
+                };
+                
+                alertItem.appendChild(alertTime);
+                alertItem.appendChild(alertType);
+                alertItem.appendChild(alertDesc);
+                alertItem.appendChild(alertStatus);
+                alertItem.appendChild(handleBtn);
+                alertListElement.appendChild(alertItem);
+            }
+            // 拉取并渲染告警详情
+            function fetchAlerts() {
+                fetch('/alerts')
+                    .then(response => response.json())
+                    .then(data => {
+                        // 检查是否有新告警
+                        const currentCount = alertsCache.length;
+                        const newCount = data.length;
+                        
+                        if (newCount > currentCount) {
+                            // 有新告警，从下方添加
+                            const newAlerts = data.slice(currentCount);
+                            newAlerts.forEach((alert, idx) => {
+                                const actualIndex = currentCount + idx;
+                                alertsCache[actualIndex] = alert;
+                                addAlert(alert, actualIndex);
+                            });
+                        } else {
+                            // 重新渲染整个列表
+                            alertsCache = data;
+                            alertListElement.innerHTML = '';
+                            data.forEach((alert, idx) => {
+                                addAlert(alert, idx);
+                            });
+                        }
+                    });
+            }
+            // 告警点击弹窗
+            alertListElement.addEventListener('click', function(e) {
+                let item = e.target;
+                while (item && !item.classList.contains('alert-item')) {
+                    item = item.parentElement;
+                }
+                if (item) {
+                    const idx = item.getAttribute('data-index');
+                    const alert = alertsCache[idx];
+                    if(alert){
+                        let html = `<div><b>时间：</b>${alert.time}</div>`;
+                        html += `<div><b>类别：</b>${alert.type}</div>`;
+                        
+                        // 添加危险等级显示
+                        if (alert.danger_level) {
+                            const levelText = {
+                                'low': '低危险',
+                                'medium': '中危险', 
+                                'high': '高危险'
+                            };
+                            const levelColor = {
+                                'low': '#ffd600', // 黄色
+                                'medium': '#2196f3', // 蓝色
+                                'high': '#e74c3c' // 红色
+                            };
+                            // 若已处理，显示绿色
+                            let color = alert.handled ? '#27ae60' : levelColor[alert.danger_level];
+                            html += `<div><b>危险等级：</b><span style=\"color: ${color};\">${levelText[alert.danger_level]}</span></div>`;
+                        }
+                        
+                        html += `<div><b>置信度：</b>${alert.confidence}</div>`;
+                        html += `<div><b>帧号：</b>${alert.frame}</div>`;
+                        html += `<div><b>描述：</b>${alert.desc||'无'}</div>`;
+
+                        // 添加位置信息显示
+                        if (alert.location) {
+                            html += `<div><b>发生位置：</b>${alert.location.description || '未知位置'}</div>`;
+                            if (alert.location.region_name) {
+                                html += `<div><b>区域名称：</b>${alert.location.region_name}</div>`;
+                            }
+                            html += `<div><b>相对位置：</b>X: ${alert.location.rel_x?.toFixed(1)}%, Y: ${alert.location.rel_y?.toFixed(1)}%</div>`;
+                        }
+                        // 统一显示触发对象（ID），只显示一次
+                        if(alert.trigger_id !== undefined && alert.trigger_id !== null){
+                            html += `<div><b>触发对象：</b>ID: ${alert.trigger_id}</div>`;
+                        } else if(alert.person_id !== undefined && alert.person_id !== null){
+                            html += `<div><b>触发对象：</b>ID: ${alert.person_id}</div>`;
+                        }
+                        // 新增：声学检测结果
+                        if(alert.audio_labels && alert.audio_labels.length > 0){
+                            if(alert.audio_labels.length === 1){
+                                html += `<div><b>声学检测结果：</b>一人喧哗（${alert.audio_labels[0]}）</div>`;
+                            }else{
+                                html += `<div><b>声学检测结果：</b>多人喧哗（${alert.audio_labels.map(l=>l).join('，')}）</div>`;
+                            }
+                        }else{
+                            html += `<div><b>声学检测结果：</b>无声音</div>`;
+                        }
+                        // 新增：分贝统计
+                        if(alert.audio_db_stats){
+                            html += `<div><b>声学检测结果：</b>检测到平均${alert.audio_db_stats.avg_db}分贝的音量，最高音量为${alert.audio_db_stats.max_db}分贝，最低音量为${alert.audio_db_stats.min_db}分贝</div>`;
+                        }
+                        html += `<div><b>状态：</b><span style="color: ${alert.handled ? '#27ae60' : '#e74c3c'};">${alert.handled ? '已处理' : '未处理'}</span></div>`;
+                        if (alert.handled && alert.handled_time) {
+                            html += `<div><b>处理时间：</b>${alert.handled_time}</div>`;
+                        }
+                        document.getElementById('alert-modal-content').innerHTML = html;
+                        document.getElementById('alert-modal').style.display = 'flex';
+                    }
+                }
+            });
+            document.getElementById('alert-modal-close').onclick = function(){
+                document.getElementById('alert-modal').style.display = 'none';
+            };
+            document.getElementById('alert-modal').onclick = function(e){
+                if(e.target===this){ this.style.display='none'; }
+            };
+            // 获取系统统计信息
+            function fetchStats() {
+                fetch('/stats')
+                    .then(response => response.json())
+                    .then(data => {
+                        fpsElement.textContent = data.fps.toFixed(1);
+                        frameCountElement.textContent = data.frame_count;
+                        processedCountElement.textContent = data.processed_count;
+                        runningTimeElement.textContent = data.running_time;
+                        // 检查是否有新告警
+                        if (data.alert_count > previousAlertCount) {
+                            const now = new Date();
+                            const timeStr = now.toLocaleTimeString();
+                            const newAlert = alertsCache[data.alert_count - 1];
+                            if (newAlert) {
+                                addAlert(newAlert, data.alert_count - 1);
+                            }
+                            previousAlertCount = data.alert_count;
+                        }
+                        // 更新系统状态
+                        systemState = data.status.toLowerCase();
+                        updateStatusUI(systemState);
+                    })
+                    .catch(err => {
+                        console.error('获取统计信息失败:', err);
+                    });
+            }
+            // 控制系统
+            function controlSystem(action) {
+                fetch('/control', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: action }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('控制结果:', data);
+                    // 更新视频流（通过添加时间戳避免缓存）
+                    if (action === 'start') {
+                        videoElement.src = '/video_feed?' + new Date().getTime();
+                        loadingElement.style.display = 'block';
+                        loadingElement.textContent = '正在连接视频流...';
+                    }
+                })
+                .catch(err => {
+                    console.error('控制请求失败:', err);
+                });
+            }
+            // 绑定按钮事件
+            startBtn.addEventListener('click', function() {
+                controlSystem('start');
+            });
+            pauseBtn.addEventListener('click', function() {
+                controlSystem('pause');
+            });
+            stopBtn.addEventListener('click', function() {
+                controlSystem('stop');
+            });
+            // 定期获取统计信息和告警详情
+            setInterval(fetchStats, 1000);
+            setInterval(fetchAlerts, 1000);
+            setInterval(fetchAlertStats, 1000); // 定期获取告警统计
+            // 初始获取一次
+            fetchStats();
+            fetchAlerts();
+            fetchAlertStats(); // 初始获取一次告警统计
+
+            // 新增canvas相关
+            const regionCanvas = document.getElementById('region-canvas');
+            const regionCtx = regionCanvas.getContext('2d');
+            let alertRegion = [];
+            // canvas尺寸同步
+            function resizeCanvasToVideo() {
+                regionCanvas.width = videoElement.clientWidth;
+                regionCanvas.height = videoElement.clientHeight;
+            }
+            // 拉取警戒区域
+            function fetchAlertRegion() {
+                fetch('/config/alert_region')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && Array.isArray(data.region)) {
+                            alertRegion = data.region;
+                        } else {
+                            alertRegion = [];
+                        }
+                    });
+            }
+            // 绘制多边形
+            function drawAlertRegion() {
+                resizeCanvasToVideo();
+                regionCtx.clearRect(0, 0, regionCanvas.width, regionCanvas.height);
+                if (alertRegion.length >= 3) {
+                    // 坐标缩放
+                    const scaleX = regionCanvas.width / videoElement.naturalWidth;
+                    const scaleY = regionCanvas.height / videoElement.naturalHeight;
+                    regionCtx.save();
+                    regionCtx.strokeStyle = 'blue';
+                    regionCtx.lineWidth = 2;
+                    regionCtx.beginPath();
+                    regionCtx.moveTo(alertRegion[0][0] * scaleX, alertRegion[0][1] * scaleY);
+                    for (let i = 1; i < alertRegion.length; i++) {
+                        regionCtx.lineTo(alertRegion[i][0] * scaleX, alertRegion[i][1] * scaleY);
+                    }
+                    regionCtx.closePath();
+                    regionCtx.stroke();
+                    regionCtx.restore();
+                }
+            }
+            // 定时拉取和绘制
+            setInterval(fetchAlertRegion, 1000);
+            setInterval(drawAlertRegion, 100);
+            // 视频尺寸变化时同步canvas
+            window.addEventListener('resize', resizeCanvasToVideo);
+            videoElement.addEventListener('load', resizeCanvasToVideo);
+        });
+    </script>
+</body>
+</html>
+        
