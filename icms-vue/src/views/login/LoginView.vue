@@ -197,6 +197,8 @@ export default defineComponent({
 
     // 验证成功回调
     const onVerifySuccess = () => {
+      showMessage('验证成功')
+
       showSlideVerify.value = false
       if (pendingRegister.value) {
         handleRegister()
@@ -467,12 +469,12 @@ export default defineComponent({
 
       try {
         const response = await userApi.register(registerForm)
-        const { data } = response
-        if (data.code === 0) {
+        console.log('response:', response)
+        if (response) {
           showMessage('注册成功，请登录')
           changeForm()
         } else {
-          showMessage(data.message || '注册失败，请检查信息后重试')
+          showMessage(response.message || '注册失败，请检查信息后重试')
         }
       } catch (error) {
         console.error('注册失败:', error)
