@@ -97,7 +97,10 @@ class AllInOneSystem:
     def __init__(self, args):
         """初始化系统"""
         self.args = args
+<<<<<<< HEAD
         print(f"AllInOneSystem初始化, args.web_interface={getattr(args, 'web_interface', None)}")
+=======
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
 
         # 创建输出目录
         os.makedirs(args.output, exist_ok=True)
@@ -135,7 +138,11 @@ class AllInOneSystem:
                 host='localhost',
                 port=3306,
                 user='root',
+<<<<<<< HEAD
                 password='',
+=======
+                password='cangshu606',
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                 database='video_surveillance_alerts',
                 charset='utf8mb4'
             )
@@ -194,12 +201,17 @@ class AllInOneSystem:
 
         # 初始化Web服务器（如果可用且启用）
         self.app = None
+<<<<<<< HEAD
         print(f"HAS_FLASK={HAS_FLASK}, args.web_interface={args.web_interface}")
         if args.web_interface and HAS_FLASK:
             print("即将调用init_web_server()...")
             self.init_web_server()
         else:
             print("未调用init_web_server，条件不满足")
+=======
+        if args.web_interface and HAS_FLASK:
+            self.init_web_server()
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
 
         # 初始化视频录制器，如果用户传了 --record 参数，就把最终处理后的画面同时录制到视频文件里保存
         self.video_writer = None
@@ -223,10 +235,16 @@ class AllInOneSystem:
         else:
             logger.info("未启用音频监控")
 
+<<<<<<< HEAD
+=======
+        self.recent_audio_events = collections.deque(maxlen=20)  # 缓存最近音频事件（label, score, timestamp）
+
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
         logger.info("全功能视频监控系统初始化完成")
 
     def init_web_server(self):
         """初始化Web服务器"""
+<<<<<<< HEAD
         print("init_web_server方法被调用")
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         self.app = Flask(
@@ -235,6 +253,9 @@ class AllInOneSystem:
             static_folder=os.path.join(BASE_DIR, '../static')
         )
         print("Flask static_folder:", self.app.static_folder)
+=======
+        self.app = Flask(__name__, template_folder='../templates')  # 指定 HTML 模板文件夹位置
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
 
         # 添加静态文件服务
         @self.app.route('/alerts_images/<path:relpath>')
@@ -304,7 +325,13 @@ class AllInOneSystem:
                             'rel_y': 0,
                             'description': '未知位置',
                             'region_name': alert.get('region_name', '')
+<<<<<<< HEAD
                         })
+=======
+                        }),
+                        # 新增：声学检测结果
+                        'audio_labels': alert.get('audio_labels', None)
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                     }
                     alerts_data.append(alert_data)
                 return jsonify(alerts_data)
@@ -621,6 +648,7 @@ class AllInOneSystem:
             else:
                 return jsonify({'success': False, 'message': '未知操作'})
 
+<<<<<<< HEAD
         @self.app.route('/api/report_stranger_login', methods=['POST'])
         def report_stranger_login():
             """
@@ -684,6 +712,8 @@ class AllInOneSystem:
         except Exception as e:
             logger.error(f"集成AI日报API失败: {e}")
 
+=======
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
         def run_web_server():
             """在单独的线程中运行Web服务器"""
             if self.app is not None:
@@ -767,6 +797,14 @@ class AllInOneSystem:
         else:
             source = self.args.source
 
+<<<<<<< HEAD
+=======
+        # 特殊处理source=1，使用RTMP拉流
+        if source == 1:
+            source = "rtmp://121.36.44.77:1935/live/livestream"
+            logger.info(f"使用RTMP拉流: {source}")
+
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
         cap = cv2.VideoCapture(source)
         if not cap.isOpened():
             logger.error(f"无法打开视频源: {source}")
@@ -783,7 +821,11 @@ class AllInOneSystem:
         logger.info(f"视频分辨率: {actual_width}x{actual_height}")
 
         # 设置摄像头参数（仅用于本地摄像头）
+<<<<<<< HEAD
         if source == 0 or (isinstance(source, int) and source >= 0):
+=======
+        if isinstance(source, int) and source >= 0:
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
             # 尝试设置MJPG格式（如果支持）
             try:
                 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))  # type: ignore
@@ -816,15 +858,40 @@ class AllInOneSystem:
                 ret, frame = cap.read()
                 if not ret:
                     if isinstance(source, str) and not source.isdigit():
+<<<<<<< HEAD
                         # 视频文件结束
                         logger.info("视频文件播放完毕")
                         if self.args.loop_video:
+=======
+                        # 视频文件或RTMP流结束/中断
+                        logger.warning(f"视频流中断: {source}")
+                        if self.args.loop_video and "rtmp://" not in source:  # RTMP流不循环
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                             # 重新开始视频
                             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                             continue
                         else:
+<<<<<<< HEAD
                             self.running = False
                             break
+=======
+                            # 尝试重新连接RTMP流
+                            if "rtmp://" in source:
+                                logger.warning("RTMP流断开，尝试重新连接...")
+                                time.sleep(2.0)  # RTMP重连间隔
+                                cap.release()
+                                cap = cv2.VideoCapture(source)
+                                if not cap.isOpened():
+                                    logger.error("RTMP重新连接失败")
+                                    self.running = False
+                                    break
+                                else:
+                                    logger.info("RTMP重新连接成功")
+                                    continue
+                            else:
+                                self.running = False
+                                break
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                     else:
                         # 摄像头出错，尝试重新连接
                         logger.warning("视频帧获取失败，尝试重新连接...")
@@ -837,6 +904,16 @@ class AllInOneSystem:
                             break
                         continue
 
+<<<<<<< HEAD
+=======
+                # 检查是否需要旋转（竖屏转横屏）
+                if frame is not None:
+                    h, w = frame.shape[:2]
+                    if h > w:  # 如果是竖屏视频
+                        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                        logger.debug("检测到竖屏视频，已自动旋转为横屏")
+
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                 # 更新时间和计数
                 last_time = time.time()
                 frame_count += 1
@@ -917,6 +994,21 @@ class AllInOneSystem:
                     # 检测危险行为
                     alerts = self.danger_recognizer.process_frame(process_frame, features, object_detections)
 
+<<<<<<< HEAD
+=======
+                    # 音视频联动：如有打架/摔倒告警，合并音频信息
+                    now = time.time()
+                    for alert in alerts:
+                        if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
+                            # 查找1.5秒内的音频事件
+                            audio_msgs = []
+                            for label, score, ts in list(self.recent_audio_events):
+                                if now - ts < 1.5:
+                                    audio_msgs.append(f"声音: {label}({score:.2f})")
+                            if audio_msgs:
+                                alert['desc'] += '；' + '；'.join(audio_msgs)
+                                alert['audio_labels'] = [label for label, score, ts in self.recent_audio_events if now - ts < 1.5]
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                     # 更新all_alerts和recent_alerts
                     for alert in alerts:
                         alert_info = {
@@ -939,7 +1031,13 @@ class AllInOneSystem:
                                 'rel_y': 0,
                                 'description': '未知位置',
                                 'region_name': alert.get('region_name', '')
+<<<<<<< HEAD
                             })
+=======
+                            }),
+                            # 新增：声学检测结果
+                            'audio_labels': alert.get('audio_labels', None)
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
                         }
                         
                         with self.alert_lock:
@@ -1346,6 +1444,7 @@ class AllInOneSystem:
             'interactions': getattr(self, 'recognized_interactions', [])
         }
 
+<<<<<<< HEAD
     def add_audio_alert(self, label, score):
         """供音频监控模块调用，推送声学异常告警"""
         alert_info = {
@@ -1367,6 +1466,53 @@ class AllInOneSystem:
             self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
             self.recent_alerts.append(alert_info)
         # 新增：统计声学异常
+=======
+    def add_audio_alert(self, labels, scores, audio_db_stats=None):
+        """供音频监控模块调用，推送声学异常告警，支持一人/多人喧哗"""
+        now = time.time()
+        # 记录音频事件到队列
+        if not labels or len(labels) == 0:
+            # 无声音，不生成声学告警，仅在详情中可体现
+            return
+        self.recent_audio_events.append((labels, scores, now))
+        # 检查最近2秒内是否有打架/摔倒类行为告警
+        recent_behavior = False
+        with self.alert_lock:
+            for alert in list(self.all_alerts)[-10:]:
+                if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
+                    alert_time = alert.get('time')
+                    try:
+                        alert_ts = time.mktime(time.strptime(alert_time, '%Y-%m-%d %H:%M:%S'))
+                    except:
+                        continue
+                    if now - alert_ts < 2.0:
+                        recent_behavior = True
+                        break
+        if not recent_behavior:
+            # 只要检测到声音就生成“Classroom Noise”告警
+            alert_type = 'Classroom Noise'
+            desc = f"检测到教室喧哗"
+            alert_info = {
+                'id': str(uuid.uuid4()),
+                'type': alert_type,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'confidence': float(max(scores)) if scores else 0,
+                'frame': '',
+                'desc': desc,
+                'handled': False,
+                'handled_time': None,
+                'person_id': '',
+                'person_class': '',
+                'audio_labels': labels
+            }
+            with self.alert_lock:
+                self.all_alerts.append(alert_info)
+                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
+                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
+                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
+                self.recent_alerts.append(alert_info)
+        # 新增：统计声学异常（不再生成“声学异常”告警）
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
         if hasattr(self, 'danger_recognizer') and hasattr(self.danger_recognizer, 'behavior_stats'):
             stats = self.danger_recognizer.behavior_stats
             stats['audio_event_count'] = stats.get('audio_event_count', 0) + 1
@@ -1422,7 +1568,10 @@ def parse_args():
 
 def main():
     """主函数"""
+<<<<<<< HEAD
     print("main函数已启动")
+=======
+>>>>>>> 21a9a41ed772372819eac17d0de592afd2b59a05
     args = parse_args()
     system = AllInOneSystem(args)
     system.start()

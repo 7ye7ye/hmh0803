@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: icms
+  # DataSource Config
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://121.36.44.77:3306/icms
+    username: root
+    password: 123456
+
+server:
+  port: 8090
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

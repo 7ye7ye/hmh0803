@@ -34,7 +34,7 @@ class DangerRecognizer:
     DANGER_LEVELS = {
         'sudden_motion': 'low',
         'large_area_motion': 'low',
-        'fall': 'medium',  # 修改：摔倒检测改为中危险
+        'fall': 'high',  # 修改：摔倒检测改为高危险
         'abnormal_pattern': 'medium',
         'intrusion': 'medium',
         'loitering': 'medium',
@@ -139,6 +139,12 @@ class DangerRecognizer:
         self._dwell_time_threshold_s = self.config['dwell_time_threshold_s']
         
         self.approach_alert_cooldown = {}  # 新增：接近危险区域告警冷却
+        
+        # 新增：每人历史最大高度缓存
+        self.person_max_heights = {}  # person_id: max_height
+        
+        self.person_fall_state = {}  # person_id: bool，唯一摔倒状态
+        self.person_fall_last_time = {}  # person_id: 上次倒地时间戳
         
         logger.info(f"危险行为识别器已初始化，特征点阈值:{self.config['feature_count_threshold']}, " + 
                    f"变化率阈值:{self.config['feature_change_ratio']}, " +
@@ -378,6 +384,9 @@ class DangerRecognizer:
         current_frame = self.current_frame
         cooldown_frames = int(self.config['fps'])  # 1秒冷却
         approach_distance = self.config.get('danger_zone_approach_distance', 50)
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if not hasattr(self, 'approach_alerted_set'):
+            self.approach_alerted_set = set()
         for obj in object_detections:
             if 'bbox' not in obj or str(obj.get('class', '')).lower() != 'person':
                 continue
@@ -390,10 +399,8 @@ class DangerRecognizer:
                     in_any_zone = True
                     break
             if in_any_zone:
-                # 进入区域后，移除冷却，后续离开可再次触发
                 self.approach_alert_cooldown.pop(object_id, None)
                 continue
-            # 未进入区域，检测距离
             for i, region in enumerate(self.alert_regions):
                 dist = self._calculate_distance_to_region(bbox, region['points'])
                 if dist < approach_distance:
@@ -413,11 +420,19 @@ class DangerRecognizer:
                             'distance': dist,
                             'threshold': approach_distance,
                             'bbox': bbox,
-                            'desc': desc
+                            'desc': desc,
+                            'alert_time': now_str
                         }
+                        alert_key = (object_id, i, now_str)
+                        if alert_key in self.approach_alerted_set:
+                            continue
                         alerts.append(alert)
+                        self.approach_alerted_set.add(alert_key)
                         self.approach_alert_cooldown[object_id] = current_frame
-                    break  # 只报一次
+                    break
+        # 清理过期的唯一性key（只保留最近1000个）
+        if len(self.approach_alerted_set) > 1000:
+            self.approach_alerted_set = set(list(self.approach_alerted_set)[-1000:])
         return alerts
     
     def process_frame(self, frame, features, object_detections=None):

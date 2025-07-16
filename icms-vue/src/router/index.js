@@ -25,6 +25,25 @@ const routes = [
   //   meta: { requiresAuth: true, requiresAdmin: true }  // 需要管理员权限
   // },
   {
+    path: '/user/center',
+    name: 'userCenter',
+    component: () => import('@/views/user/UserCenter.vue'),
+    meta: { 
+      requiresAuth: true,
+      title: '个人中心'
+    }
+  },
+  {
+    path: '/user/attendance',
+    name: 'userAttendance',
+    component: () => import('@/views/user/AttendanceView.vue'),
+    meta: { 
+      requiresAuth: true,
+      requiresUser: true, // 只允许用户访问
+      title: '考勤管理'
+    }
+  },
+  {
     path: '/api-response',
     name: 'apiResponse',
     component: ApiResponseView,

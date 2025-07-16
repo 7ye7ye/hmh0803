@@ -42,6 +42,7 @@ const navigate = (routeName) => {
   // 更新 store 中的当前选中项
   menuStore.setCurrentMenu(routeName)
 }
+
 </script>
   
   <style scoped>
