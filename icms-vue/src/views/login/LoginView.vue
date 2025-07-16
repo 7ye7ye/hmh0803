@@ -24,12 +24,12 @@
           <input type="text" class="form_input" v-model="registerForm.username" placeholder="请输入用户名">
           <input type="password" class="form_input" v-model="registerForm.password" placeholder="请输入密码">
           <input type="password" class="form_input" v-model="registerForm.checkPassword" placeholder="请确认密码">
-          
+
           <!-- 人脸采集区域 -->
           <div class="face-capture">
            <!-- 视频采集容器，当未采集到人脸图像时显示 -->
             <div class="video-container" v-if="!registerForm.faceImage">
-              <img 
+              <img
                 :src="videoFeedUrl"
                 class="stream-image"
                 @load="() => isRegisterPlayerReady = true"
@@ -76,12 +76,12 @@
             <!-- 登录表单输入字段 -->
             <input type="text" class="form_input" v-model="loginForm.username" placeholder="请输入用户名">
             <input type="password" class="form_input" v-model="loginForm.password" placeholder="请输入密码">
-            
+
             <!-- 人脸验证区域 -->
             <div class="face-capture">
               <!-- 登录表单的视频容器 -->
               <div class="video-container" v-if="!loginForm.faceImage">
-                <img 
+                <img
                   :src="videoFeedUrl"
                   class="stream-image"
                   @load="() => isLoginPlayerReady = true"
@@ -143,9 +143,9 @@
       </div>
     </div>
   </div>
-  <a-modal 
-    v-model:visible="showSlideVerify" 
-    title="请完成滑动验证" 
+  <a-modal
+    v-model:visible="showSlideVerify"
+    title="请完成滑动验证"
     :footer="null"
     :closable="false"
     :maskClosable="false"
@@ -172,6 +172,7 @@ import { useLoginUserStore } from '@/store/useLoginUserStore'
 import { userApi } from '@/api/user'
 import { aiApi } from '../../api/ai'
 import { message } from 'ant-design-vue';
+import { videoApi } from '@/api/video'
 import Vue3SlideVerify from 'vue3-slide-verify'
 import 'vue3-slide-verify/dist/style.css'
 
@@ -189,7 +190,7 @@ export default defineComponent({
 
     // 修改注册按钮点击事件
     const onRegisterClick = () => {
-      
+
       pendingRegister.value = true
       showSlideVerify.value = true
     }
@@ -213,7 +214,7 @@ export default defineComponent({
     const onVerifyRefresh = () => {
       console.log('验证码已刷新')
     }
-    
+
     // 初始化路由和状态管理
     const router = useRouter()
     const route = useRoute()
@@ -222,8 +223,7 @@ export default defineComponent({
     // 视频流URL
     const videoFeedUrl = computed(() => {
       const baseUrl = process.env.VUE_APP_AI_API
-      // 添加时间戳和一个随机数，确保每次切换都会刷新
-      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}&r=${Math.random()}`
+      return `${baseUrl}/ai/facial/video_feed_cors?t=${Date.now()}`
     })
 
     // 监听视频流加载状态
@@ -252,6 +252,8 @@ export default defineComponent({
     const isLoginPlayerReady = ref(false)    // 登录播放器就绪状态
     const errorMessage = ref('')        // 错误消息
     const isProcessing = ref(false)     // 处理状态标志
+    // 失败计数器
+    const failCount = ref(0)
 
     // 登录表单数据
     const loginForm = reactive({
@@ -290,7 +292,7 @@ export default defineComponent({
     })
 
     // 注册时捕获人脸的函数
-    const captureFaceForRegister = async () => {      
+    const captureFaceForRegister = async () => {
       isProcessing.value =true
 
       try {
@@ -311,7 +313,7 @@ export default defineComponent({
       }
     }
 
-   
+
     // 重置注册人脸采集的函数
     const resetCapture = () => {
       captureFaceForLogin()      // 重新捕获
@@ -320,6 +322,18 @@ export default defineComponent({
     // 重置登录人脸采集的函数
     const resetLoginCapture = () => {
       captureFaceForLogin()      // 重新捕获
+    }
+
+    // 采集当前视频流画面为base64图片
+    const captureFaceImage = () => {
+      const video = document.querySelector('.stream-image');
+      if (!video) return '';
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 400;
+      canvas.height = video.videoHeight || 300;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/png');
     }
 
     // 显示消息提示的函数
@@ -365,26 +379,54 @@ export default defineComponent({
     }
 
      // 登录时捕获人脸的函数
-     const captureFaceForLogin = async () => {      
+     const captureFaceForLogin = async () => {
       isProcessing.value =true
       try {
+        // 点击人脸验证时立即采集图片
+        loginForm.faceImage = captureFaceImage();
+        console.log('采集到的图片base64:', loginForm.faceImage);
         const response =await userApi.login(loginForm)
         console.log('faceEmbedding:', response.data.faceEmbedding)
 
         if (response.data.faceEmbedding) {
           loginForm.faceEmbedding = response
           showMessage('人脸验证信息采集成功')
+          failCount.value = 0 // 成功则重置失败计数
         }
       } catch (error) {
         console.error('人脸验证采集失败:', error)
+        failCount.value++
         showMessage('人脸验证采集失败，请确认该账户是否为本人')
+        // 超过1次则上报告警
+        if (failCount.value >= 1) {
+          const alertData = {
+            rule_id: 'stranger-login',
+            level: 'ALERT',
+            danger_level: '低',
+            source_type: 'Stranger attack',
+            event_time: new Date().toISOString(),
+            message: '检测到陌生人恶意登录他人账号',
+            details: JSON.stringify({ username: loginForm.username, role: loginForm.role }),
+            frame_idx: 0,
+            acknowledged: false,
+            related_events: JSON.stringify([]),
+            photo: loginForm.faceImage // 直接传递采集到的base64
+          }
+          try {
+            await videoApi.reportStrangerAlert(alertData)
+            showMessage('已上报陌生人登录告警')
+            failCount.value = 0 // 上报后重置
+          } catch (e) {
+            showMessage('告警上报失败')
+          }
+        }
       } finally {
         isProcessing.value = false
       }
     }
 
     // 处理登录的函数
-    const handleLogin = async () => {                                                                                                                                                             
+    const handleLogin = async () => {
       try {
         const response = await userApi.login(loginForm)
         const userData = response.data
@@ -397,8 +439,8 @@ export default defineComponent({
             loginTime: new Date().toISOString()
           })
           currentRole.value = role
-          isLoggedIn.value = true 
-          currentUsername.value = username 
+          isLoggedIn.value = true
+          currentUsername.value = username
           const redirect = route.query.redirect
           if (role === 'student') {
             router.push(redirect || '/home')
@@ -422,14 +464,15 @@ export default defineComponent({
         showMessage('两次输入的密码不一致')
         return
       }
-      
+
       try {
         const response = await userApi.register(registerForm)
-        if (response.data) {
+        const { data } = response
+        if (data.code === 0) {
           showMessage('注册成功，请登录')
           changeForm()
         } else {
-          showMessage(response.message || '注册失败，请检查信息后重试')
+          showMessage(data.message || '注册失败，请检查信息后重试')
         }
       } catch (error) {
         console.error('注册失败:', error)
@@ -441,11 +484,7 @@ export default defineComponent({
     const changeForm = () => {
       isRegisterForm.value = !isRegisterForm.value
       errorMessage.value = ''
-      
-      // 重置视频流状态
-      isRegisterPlayerReady.value = false
-      isLoginPlayerReady.value = false
-      
+
       // 使用 nextTick 确保 DOM 已更新
       nextTick(() => {
         // 获取DOM元素
@@ -475,14 +514,6 @@ export default defineComponent({
         aContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-txl")
         bContainer.classList.toggle("is-z")
-
-        // 强制刷新视频流
-        const streamImages = document.querySelectorAll('.stream-image')
-        streamImages.forEach(img => {
-          if (img) {
-            img.src = videoFeedUrl.value
-          }
-        })
       })
     }
 
@@ -499,6 +530,12 @@ export default defineComponent({
       checkLoginStatus().then(() => {
         if(isLoggedIn.value) return;
 
+        // 设置视频流就绪状态的延迟检查
+        setTimeout(() => {
+          isRegisterPlayerReady.value = true;
+          isLoginPlayerReady.value = true;
+        }, 1000);
+
         // 在 nextTick 中处理路由查询参数
         nextTick(() => {
           const shouldRegister = route.query.register === 'true'
@@ -513,7 +550,7 @@ export default defineComponent({
     onUnmounted(() => {
       // 移除 ResizeObserver 错误处理
       window.removeEventListener('error', () => {});
-      
+
       // 清理相关状态
       isRegisterPlayerReady.value = false;
       isLoginPlayerReady.value = false;
@@ -548,7 +585,8 @@ export default defineComponent({
       resetLoginCapture,
       isRegisterFormValid,
       isLoginFormValid,
-      isProcessing
+      isProcessing,
+      failCount
     }
   }
 })

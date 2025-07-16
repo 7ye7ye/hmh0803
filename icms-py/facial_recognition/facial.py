@@ -49,7 +49,7 @@ class FacialRecognitionService:
         self.STABLE_FRAME_REQUIREMENT = 10
         self.MOVEMENT_THRESHOLD = 0.0008
         self.PASSIVE_STABILITY_REQUIREMENT = 5  # 需要5帧稳定才进入下一阶段
-        self.MOUTH_OPEN_THRESHOLD = 0.45  # 嘴巴张开比例阈值，需要根据实际情况微调
+        self.MOUTH_OPEN_THRESHOLD = 0.35  # 嘴巴张开比例阈值，需要根据实际情况微调
         self.SUCCESS_DISPLAY_DURATION = 3
 
         # 初始化组件
