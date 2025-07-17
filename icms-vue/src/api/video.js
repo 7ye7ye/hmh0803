@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-console.log('当前环境变量 VIDEO_API:', process.env.VUE_APP_VIDEO_API);
+console.log('21当前环境变量 VIDEO_API:', process.env.VUE_APP_VIDEO_API);
 
 // 创建axios实例
 const request = axios.create({

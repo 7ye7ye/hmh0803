@@ -52,10 +52,21 @@ async def compare_face(request: CompareRequest):
     """
     logger.info(f"收到用户 '{request.username}' 的人脸比对任务。")
 
-    # 从 facial_service 获取最新的实时人脸数据
+    # 确保服务在运行状态
+    if not facial_service.is_running:
+        logger.warning("服务当前未运行，正在尝试启动...")
+        await facial_service.start_analysis()
+        # 启动后给予短暂的缓冲时间来获取第一帧
+        await asyncio.sleep(2)
+
     realtime_result = await facial_service.get_latest_face_info()
 
-    # 是否检测到人脸或者保持不变
+    if realtime_result:
+        logger.info("检测到人脸 '蛋挞欣'")
+    else:
+        logger.info(f"未检测到实时人脸向量，当前数据为: '{realtime_result}'")
+
+    # 4. 检查数据有效性并进行后续比对
     if not realtime_result or "vector_list" not in realtime_result:
         logger.warning(f"比对失败：用户'{request.username}'未正对摄像头或未检测到人脸。")
         raise HTTPException(

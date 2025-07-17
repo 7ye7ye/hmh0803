@@ -43,7 +43,6 @@ class FaceEncoder:
                 None,
                 self._extract_face_sync,
                 frame
-
             )
             if not results:
                 return None
@@ -135,9 +134,6 @@ class FaceEncoder:
         except Exception as e:
             logger.error(f"处理图像时发生错误: {e}")
             return None
-            
-    
-
 
 class AdvancedLivenessChecker:
     def __init__(self, liveness_model_path: str):

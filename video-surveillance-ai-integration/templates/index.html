@@ -972,9 +972,15 @@
                             html += `<div><b>触发对象：</b>ID: ${alert.person_id}</div>`;
                         }
                         // 新增：声学检测结果
-                        if(alert.audio_db_stats) {
-                            let dbText = `检测到平均${alert.audio_db_stats.avg_db}分贝的音量，最高音量为${alert.audio_db_stats.max_db}分贝，最低音量为${alert.audio_db_stats.min_db}分贝`;
-                            html += `<div><b>声学检测结果：</b>${dbText}</div>`;
+                        if(alert.audio_db_stats && alert.audio_db_stats.max_db) {
+                            if(alert.volume_exceeded) {
+                                let dbText = `检测到最高音量为${alert.audio_db_stats.max_db}分贝 (超过音量阈值${alert.volume_threshold}分贝)`;
+                                html += `<div><b>声学检测结果：</b>${dbText}</div>`;
+                            } else {
+                                html += `<div><b>声学检测结果：</b>声学检测结果正常</div>`;
+                            }
+                        } else {
+                            html += `<div><b>声学检测结果：</b>无数据</div>`;
                         }
                         html += `<div><b>状态：</b><span style="color: ${alert.handled ? '#27ae60' : '#e74c3c'};">${alert.handled ? '已处理' : '未处理'}</span></div>`;
                         if (alert.handled && alert.handled_time) {

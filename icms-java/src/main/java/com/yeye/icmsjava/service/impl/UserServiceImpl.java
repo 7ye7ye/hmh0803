@@ -144,6 +144,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 return null;
             }
 
+            System.out.println("发送的用户信息user:"+user);
+            System.out.println("能返回的安全用户的信息:"+getSaftyUser(user));
             try {
                 // 发送POST请求到Python服务，并获取比对结果
                 // 假设后端接口直接返回 true 或 false

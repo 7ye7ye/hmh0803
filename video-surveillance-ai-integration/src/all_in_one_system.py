@@ -64,6 +64,7 @@ except ImportError as e:
 try:
     from flask import Flask, render_template, Response, jsonify, request
     import threading
+    from flask_cors import CORS
 
     HAS_FLASK = True
     logger.info("成功导入Flask Web模块")
@@ -224,6 +225,7 @@ class AllInOneSystem:
             logger.info("未启用音频监控")
 
         self.recent_audio_events = collections.deque(maxlen=20)  # 缓存最近音频事件（label, score, timestamp）
+        self.latest_audio_db = None  # 新增：用于分贝共享
 
         logger.info("全功能视频监控系统初始化完成")
 
@@ -237,6 +239,9 @@ class AllInOneSystem:
             static_folder=os.path.join(BASE_DIR, '../static')
         )
         print("Flask static_folder:", self.app.static_folder)
+        from flask_cors import CORS
+        CORS(self.app, origins=["http://localhost:8085"], supports_credentials=True)  # 允许指定来源的跨域请求，支持凭证
+        logger.info("CORS已启用，允许前端地址 http://localhost:8085")
 
         # 添加静态文件服务
         @self.app.route('/alerts_images/<path:relpath>')
@@ -308,7 +313,10 @@ class AllInOneSystem:
                             'region_name': alert.get('region_name', '')
                         }),
                         # 新增：声学检测结果
-                        'audio_labels': alert.get('audio_labels', None)
+                        'audio_labels': alert.get('audio_labels', None),
+                        'audio_db_stats': alert.get('audio_db_stats', None),
+                        'volume_exceeded': alert.get('volume_exceeded', False),
+                        'volume_threshold': alert.get('volume_threshold', None)
                     }
                     alerts_data.append(alert_data)
                 return jsonify(alerts_data)
@@ -625,54 +633,151 @@ class AllInOneSystem:
             else:
                 return jsonify({'success': False, 'message': '未知操作'})
 
-        @self.app.route('/api/report_stranger_login', methods=['POST'])
+        @self.app.route('/alert/stranger', methods=['POST'])
         def report_stranger_login():
             """
-            外部前端上传陌生人登录图片和告警信息
+            外部前端上传陌生人登录base64图片和告警信息
             """
-            from werkzeug.utils import secure_filename
             import os
+            import base64
+            import json as pyjson
             from datetime import datetime
-            # 1. 获取表单数据
-            username = request.form.get('username')
-            ip = request.form.get('ip')
-            extra = request.form.get('extra', '')
-            file = request.files.get('image')
 
-            if not file or not username:
-                return jsonify({'success': False, 'message': '缺少图片或用户名'}), 400
+            # 兼容JSON方式上传
+            if request.is_json:
+                data = request.get_json(force=True)
+                logger.info(f"接收到的JSON数据: {data}")
+                # 1. 获取字段
+                rule_id = data.get('rule_id', 'stranger-login').strip()
+                level = data.get('level')
+                danger_level = data.get('danger_level', '低').strip()  # 去除前后空格
+                source_type = data.get('source_type', 'Stranger attack')
+                event_time = data.get('event_time', datetime.now().isoformat())
+                message = data.get('message', '')
+                details = data.get('details', '{}')
+                frame_idx = data.get('frame_idx', 0)
+                acknowledged = data.get('acknowledged', False)
+                related_events = data.get('related_events', '[]')
+                photo_base64 = data.get('photo', '')
 
-            # 2. 保存图片到本地
-            filename = secure_filename(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
-            save_dir = os.path.join(os.getcwd(), 'alerts')  # 确保和你原有图片目录一致
-            os.makedirs(save_dir, exist_ok=True)
-            save_path = os.path.join(save_dir, filename)
-            file.save(save_path)
-            rel_path = os.path.relpath(save_path, os.getcwd())  # 存相对路径
+                logger.info(f"解析的字段: rule_id={rule_id}, level={level}, danger_level={danger_level}, photo_base64_len={len(photo_base64) if photo_base64 else 0}")
 
-            # 3. 写入数据库
-            event_id = None
-            if self.alert_database:
+                # 2. 解析details和related_events
                 try:
-                    from models.alert.alert_event import AlertEvent, AlertLevel
-                except ImportError:
-                    return jsonify({'success': False, 'message': '无法导入AlertEvent'}), 500
-                event = AlertEvent(
-                    id=None,  # MySQL自增
-                    rule_id='stranger_login',
-                    level=AlertLevel.ALERT,
-                    danger_level='medium',
-                    source_type='login',
-                    timestamp=datetime.now().timestamp(),
-                    message=f"检测到陌生人登录：{username}，IP：{ip}",
-                    details={'ip': ip, 'extra': extra},
-                    frame_idx=0,
-                    acknowledged=False,
-                    related_events=[]
-                )
-                event_id = self.alert_database.save_alert_event(event, image_paths={'login': rel_path})
+                    if isinstance(details, str):
+                        details = pyjson.loads(details)
+                except Exception:
+                    details = {}
+                try:
+                    if isinstance(related_events, str):
+                        related_events = pyjson.loads(related_events)
+                except Exception:
+                    related_events = []
 
-            return jsonify({'success': True, 'event_id': event_id, 'image_path': rel_path})
+                # 3. 保存base64图片
+                image_path = None
+                if photo_base64:
+                    try:
+                        header, b64data = photo_base64.split(',', 1) if ',' in photo_base64 else ('', photo_base64)
+                        imgdata = base64.b64decode(b64data)
+                        save_dir = os.path.join(os.getcwd(), 'alerts')
+                        os.makedirs(save_dir, exist_ok=True)
+                        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_stranger_login.png"
+                        save_path = os.path.join(save_dir, filename)
+                        with open(save_path, 'wb') as f:
+                            f.write(imgdata)
+                        rel_path = os.path.relpath(save_path, os.getcwd())
+                        image_path = rel_path
+                        logger.info(f"图片保存成功: {image_path}")
+                    except Exception as e:
+                        logger.error(f"图片保存失败: {str(e)}")
+                        return jsonify({'success': False, 'message': f'图片保存失败: {str(e)}'}), 500
+
+                # 4. 写入数据库
+                event_id = None
+                if self.alert_database:
+                    try:
+                        from models.alert.alert_event import AlertEvent, AlertLevel
+                        # danger_level 映射
+                        level_map = {'高': AlertLevel.CRITICAL, '中': AlertLevel.ALERT, '低': AlertLevel.WARNING,
+                                     'CRITICAL': AlertLevel.CRITICAL, 'ALERT': AlertLevel.ALERT, 'WARNING': AlertLevel.WARNING}
+                        alert_level = level_map.get(danger_level, AlertLevel.ALERT)
+                        # 时间戳
+                        try:
+                            timestamp = datetime.fromisoformat(event_time).timestamp()
+                        except Exception:
+                            timestamp = datetime.now().timestamp()
+                        event = AlertEvent(
+                            id=None,
+                            rule_id=rule_id,
+                            level=alert_level,
+                            danger_level=danger_level,
+                            source_type=source_type,
+                            timestamp=timestamp,
+                            message=message,
+                            details=details,
+                            frame_idx=frame_idx,
+                            acknowledged=acknowledged,
+                            related_events=related_events
+                        )
+                        # 只有有图片时才传递image_paths，否则传None，避免image_path为None导致数据库报错
+                        if image_path:
+                            event_id = self.alert_database.save_alert_event(event, image_paths={'frame': image_path})
+                        else:
+                            event_id = self.alert_database.save_alert_event(event, image_paths=None)
+                        logger.info(f"数据库写入成功，event_id: {event_id}")
+                    except Exception as e:
+                        logger.error(f"数据库写入失败: {str(e)}")
+                        return jsonify({'success': False, 'message': f'数据库写入失败: {str(e)}'}), 500
+
+                response_data = {'success': True, 'event_id': event_id, 'image_path': image_path}
+                logger.info(f"返回响应: {response_data}")
+                return jsonify(response_data)
+            else:
+                logger.info("请求不是JSON格式，尝试表单上传")
+                # 兼容原有表单上传方式
+                from werkzeug.utils import secure_filename
+                # 1. 获取表单数据
+                username = request.form.get('username')
+                ip = request.form.get('ip')
+                extra = request.form.get('extra', '')
+                file = request.files.get('image')
+
+                if not file or not username:
+                    return jsonify({'success': False, 'message': '缺少图片或用户名'}), 400
+
+                # 2. 保存图片到本地
+                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
+                save_dir = os.path.join(os.getcwd(), 'alerts')  # 确保和你原有图片目录一致
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, filename)
+                file.save(save_path)
+                rel_path = os.path.relpath(save_path, os.getcwd())  # 存相对路径
+
+                # 3. 写入数据库
+                event_id = None
+                if self.alert_database:
+                    try:
+                        from models.alert.alert_event import AlertEvent, AlertLevel
+                    except ImportError:
+                        return jsonify({'success': False, 'message': '无法导入AlertEvent'}), 500
+                    event = AlertEvent(
+                        id=None,  # MySQL自增
+                        rule_id='stranger_login',
+                        level=AlertLevel.ALERT,
+                        danger_level='medium',
+                        source_type='login',
+                        timestamp=datetime.now().timestamp(),
+                        message=f"检测到陌生人登录：{username}，IP：{ip}",
+                        details={'ip': ip, 'extra': extra},
+                        frame_idx=0,
+                        acknowledged=False,
+                        related_events=[]
+                    )
+                    event_id = self.alert_database.save_alert_event(event, image_paths={'frame': rel_path})
+
+                return jsonify({'success': True, 'event_id': event_id, 'image_path': rel_path})
+
 
         @self.app.route('/ai_report')
         def ai_report_page():
@@ -950,27 +1055,38 @@ class AllInOneSystem:
                     # 检测危险行为
                     alerts = self.danger_recognizer.process_frame(process_frame, features, object_detections)
 
-                    # 音视频联动：如有打架/摔倒告警，合并音频信息
-                    now = time.time()
-                    for alert in alerts:
-                        if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
-                            # 查找1.5秒内的音频事件
-                            audio_msgs = []
-                            latest_db_stats = None
-                            for event in reversed(self.recent_audio_events):
-                                labels, scores, ts, *rest = event if len(event) >= 4 else (*event, None)
-                                if now - ts < 1.5:
-                                    # 合并分贝信息（只要有audio_db_stats）
-                                    audio_db_stats = rest[0] if rest else None
-                                    if not latest_db_stats and audio_db_stats:
-                                        latest_db_stats = audio_db_stats
-                                    for label, score in zip(labels, scores):
-                                        audio_msgs.append(f"声音: {label}({score:.2f})")
+                    # 音视频联动：所有行为告警都合并音频信息
+                    audio_msgs = []
+                    if alerts and self.recent_audio_events:
+                        last_event = self.recent_audio_events[-1]
+                        labels, scores, ts, audio_db_stats = last_event if len(last_event) >= 4 else (*last_event, None)
+                        for alert in alerts:
+                            alert['audio_db_stats'] = audio_db_stats if audio_db_stats else None
+                            alert['audio_labels'] = labels if labels else None
+                            # 检查是否超过音量阈值（设定为60分贝）
+                            volume_threshold = 60
+                            max_db = audio_db_stats.get('max_db', 0) if audio_db_stats else 0
+                            if max_db > volume_threshold:
+                                alert['volume_exceeded'] = True
+                                alert['volume_threshold'] = volume_threshold
+                                logger.info(f"[行为告警音频联动] 设置音频数据: max_db={max_db}, volume_exceeded={alert.get('volume_exceeded', False)}")
+                            else:
+                                alert['volume_exceeded'] = False
+                                alert['volume_threshold'] = volume_threshold
+                                logger.info("[行为告警音频联动] 未超过音量阈值或无分贝数据")
+                            # 追加音频描述
+                            if labels and scores:
+                                for label, score in zip(labels, scores):
+                                    audio_msgs.append(f"声音: {label}({score:.2f})")
                             if audio_msgs:
                                 alert['desc'] += '；' + '；'.join(audio_msgs)
-                                alert['audio_labels'] = [label for label, score, ts, *_ in self.recent_audio_events if now - ts < 1.5]
-                            if latest_db_stats:
-                                alert['audio_db_stats'] = latest_db_stats
+                    elif alerts:
+                        for alert in alerts:
+                            alert['audio_db_stats'] = None
+                            alert['audio_labels'] = None
+                            alert['volume_exceeded'] = False
+                            alert['volume_threshold'] = 60
+                            logger.info("[行为告警音频联动] recent_audio_events为空，无音频数据")
                     # 更新all_alerts和recent_alerts
                     for alert in alerts:
                         alert_info = {
@@ -995,7 +1111,10 @@ class AllInOneSystem:
                                 'region_name': alert.get('region_name', '')
                             }),
                             # 新增：声学检测结果
-                            'audio_labels': alert.get('audio_labels', None)
+                            'audio_labels': alert.get('audio_labels', None),
+                            'audio_db_stats': alert.get('audio_db_stats', None),
+                            'volume_exceeded': alert.get('volume_exceeded', False),
+                            'volume_threshold': alert.get('volume_threshold', None)
                         }
                         
                         with self.alert_lock:
@@ -1107,7 +1226,12 @@ class AllInOneSystem:
                         'handled': False,  # 默认未处理
                         'handled_time': None,  # 处理时间
                         'person_id': alert.get('person_id', ''),  # 新增：person id
-                        'person_class': alert.get('person_class', '')  # 新增：person类别
+                        'person_class': alert.get('person_class', ''),  # 新增：person类别
+                        # 新增：声学检测结果
+                        'audio_labels': alert.get('audio_labels', None),
+                        'audio_db_stats': alert.get('audio_db_stats', None),
+                        'volume_exceeded': alert.get('volume_exceeded', False),
+                        'volume_threshold': alert.get('volume_threshold', None)
                     }
                     
                     with self.alert_lock:
@@ -1405,9 +1529,13 @@ class AllInOneSystem:
     def add_audio_alert(self, labels, scores, audio_db_stats=None):
         """供音频监控模块调用，推送声学异常告警，支持一人/多人喧哗"""
         now = time.time()
-        # 记录音频事件到队列，包含audio_db_stats
+        logger.info(f"收到音频告警: labels={labels}, scores={scores}, audio_db_stats={audio_db_stats}")
+
+        # 1. 无论labels是否为空，都推送音频事件到队列
         self.recent_audio_events.append((labels, scores, now, audio_db_stats))
-        # 检查最近2秒内是否有打架/摔倒类行为告警
+        logger.info(f"音频事件已添加到队列，当前队列长度: {len(self.recent_audio_events)}")
+
+        # 2. 只有labels非空且无recent_behavior时才生成Classroom Noise告警
         recent_behavior = False
         with self.alert_lock:
             for alert in list(self.all_alerts)[-10:]:
@@ -1419,34 +1547,30 @@ class AllInOneSystem:
                         continue
                     if now - alert_ts < 2.0:
                         recent_behavior = True
+                        logger.info(f"发现相关行为告警: {alert.get('type')}")
                         break
-        # 始终写入分贝告警（环境噪音），只要audio_db_stats存在且分贝超过阈值
-        noise_db_threshold = 50  # 可根据实际环境调整
-        if audio_db_stats and audio_db_stats.get('avg_db', 0) > noise_db_threshold:
-            alert_info = {
-                'id': str(uuid.uuid4()),
-                'type': 'Environment Noise',
-                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'confidence': float(audio_db_stats.get('avg_db', 0)),
-                'frame': '',
-                'desc': f"检测到环境噪音，平均分贝: {audio_db_stats.get('avg_db', 0)}dB，最高: {audio_db_stats.get('max_db', 0)}dB，最低: {audio_db_stats.get('min_db', 0)}dB",
-                'handled': False,
-                'handled_time': None,
-                'person_id': '',
-                'person_class': '',
-                'audio_labels': labels,
-                'audio_db_stats': audio_db_stats
-            }
-            with self.alert_lock:
-                self.all_alerts.append(alert_info)
-                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
-                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
-                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
-                self.recent_alerts.append(alert_info)
-        # 原有逻辑：如有声学标签且无相关行为，生成Classroom Noise告警
         if labels and len(labels) > 0 and not recent_behavior:
             alert_type = 'Classroom Noise'
-            desc = f"检测到教室喧哗"
+            # 统计最近10秒内所有音频事件的分贝
+            db_list = []
+            now_ts = now
+            for event in list(self.recent_audio_events)[::-1]:
+                _, _, ts, db_stats = event if len(event) >= 4 else (*event, None)
+                if db_stats and ts and now_ts - ts <= 10:
+                    db_list.append(db_stats)
+                elif ts and now_ts - ts > 10:
+                    break
+            # 计算最大、最小、平均分贝
+            max_db = max((d.get('max_db', 0) for d in db_list), default=audio_db_stats.get('max_db', 0) if audio_db_stats else 0)
+            min_db = 0  # 强制最小分贝为0
+            avg_db = sum((d.get('avg_db', 0) for d in db_list)) / len(db_list) if db_list else (audio_db_stats.get('avg_db', 0) if audio_db_stats else 0)
+            merged_db_stats = {'max_db': round(max_db, 1), 'min_db': 0, 'avg_db': round(avg_db, 1)}
+            # 构建desc
+            volume_threshold = 60
+            if max_db > volume_threshold:
+                desc = f"检测到教室喧哗；检测到最高音量为{round(max_db,1)}分贝 (超过音量阈值{volume_threshold}分贝)，最小分贝0，平均分贝{round(avg_db,1)}"
+            else:
+                desc = f"检测到教室喧哗；声学检测结果正常，最大分贝{round(max_db,1)}，最小分贝0，平均分贝{round(avg_db,1)}"
             alert_info = {
                 'id': str(uuid.uuid4()),
                 'type': alert_type,
@@ -1459,7 +1583,9 @@ class AllInOneSystem:
                 'person_id': '',
                 'person_class': '',
                 'audio_labels': labels,
-                'audio_db_stats': audio_db_stats
+                'audio_db_stats': merged_db_stats,
+                'volume_exceeded': max_db > volume_threshold,
+                'volume_threshold': volume_threshold
             }
             with self.alert_lock:
                 self.all_alerts.append(alert_info)
@@ -1467,10 +1593,13 @@ class AllInOneSystem:
                 self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
                 self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
                 self.recent_alerts.append(alert_info)
-        # 新增：统计声学异常（不再生成“声学异常”告警）
+        # 新增：统计声学异常（不再生成"声学异常"告警）
         if hasattr(self, 'danger_recognizer') and hasattr(self.danger_recognizer, 'behavior_stats'):
             stats = self.danger_recognizer.behavior_stats
             stats['audio_event_count'] = stats.get('audio_event_count', 0) + 1
+
+        if audio_db_stats and 'max_db' in audio_db_stats:
+            self.latest_audio_db = audio_db_stats['max_db']
 
 
 def parse_args():
