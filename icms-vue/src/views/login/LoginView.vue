@@ -262,7 +262,8 @@ export default defineComponent({
       username: '',
       password: '',
       role: 'student',
-      faceEmbedding: null // 用于存储特征向量
+      faceEmbedding: null,// 用于存储特征向量
+      faceImage:''
     })
 
     // 注册表单数据
@@ -291,6 +292,8 @@ export default defineComponent({
              loginForm.password &&
              loginForm.role &&
              loginForm.faceEmbedding
+              loginForm.faceImage
+
     })
 
     // 注册时捕获人脸的函数
@@ -327,16 +330,80 @@ export default defineComponent({
     }
 
     // 采集当前视频流画面为base64图片
-    const captureFaceImage = () => {
-      const video = document.querySelector('.stream-image');
-      if (!video) return '';
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 400;
-      canvas.height = video.videoHeight || 300;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/png');
+    const captureFaceImage = (containerId) => {
+  console.log(`[1] 截图开始：准备从容器 "${containerId}" 中截图。`);
+
+  // 使用更精确的选择器，避免找到错误的 <img> 元素
+  const videoElement = document.querySelector(`${containerId} .stream-image`);
+
+  // 检查是否找到了 <img> 元素
+  if (!videoElement) {
+    console.error(`[X] 截图失败：在容器 "${containerId}" 中找不到 class="stream-image" 的 <img> 元素。请检查选择器是否正确。`);
+    return undefined; // 明确返回 undefined 表示失败
+  }
+  console.log('[2] 成功找到 <img> 元素:', videoElement);
+
+  // 对于 <img> 元素，应该使用 naturalWidth/naturalHeight 获取原始尺寸
+  const width = videoElement.naturalWidth;
+  const height = videoElement.naturalHeight;
+
+  console.log(`[3] 获取到图片的原始尺寸 - naturalWidth: ${width}, naturalHeight: ${height}`);
+
+  // 检查获取到的尺寸是否有效
+  if (!width || !height) {
+    console.error(`[X] 截图失败：图片的原始尺寸无效 (宽或高为0)。这通常意味着图片数据还没有被浏览器完全加载和渲染。`);
+    
+    // 尝试使用元素的显示尺寸作为后备方案
+    const fallbackWidth = videoElement.clientWidth;
+    const fallbackHeight = videoElement.clientHeight;
+    console.log(`[3b] 尝试获取后备尺寸 - clientWidth: ${fallbackWidth}, clientHeight: ${fallbackHeight}`);
+
+    if (!fallbackWidth || !fallbackHeight) {
+      console.error(`[X] 截图失败：后备的显示尺寸也无效。截图彻底失败。`);
+      return undefined;
     }
+    
+    console.warn(`[!] 使用后备尺寸进行截图: ${fallbackWidth}x${fallbackHeight}`);
+    // 使用后备尺寸创建 canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = fallbackWidth;
+    canvas.height = fallbackHeight;
+    const ctx = canvas.getContext('2d');
+    
+    try {
+      console.log('[4b] 正在使用后备尺寸绘制图像到 canvas...');
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      console.log('[5b] 图像绘制完成，准备导出 base64 数据...');
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log('[6b] 成功导出 base64 数据 (长度):', dataUrl.length);
+      return dataUrl;
+    } catch (e) {
+      console.error('[X] 截图失败：在使用后备尺寸绘制或导出时发生错误。这很可能是跨源(CORS)问题。错误详情:', e);
+      return undefined;
+    }
+  }
+
+  // --- 正常流程 ---
+  console.log('[4] 图片尺寸有效，正在创建 canvas...');
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  try {
+    console.log('[5] 正在将图像绘制到 canvas...');
+    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    console.log('[6] 图像绘制完成，准备导出 base64 数据...');
+    const dataUrl = canvas.toDataURL('image/png');
+    console.log('[7] 成功导出 base64 数据 (长度):', dataUrl.length);
+    return dataUrl;
+  } catch (e) {
+    console.error('[X] 截图失败：在绘制或导出时发生错误。最常见的原因是跨源(CORS)问题，即 "Tainted canvases may not be exported."。错误详情:', e);
+    // 在这里添加给用户的提示
+    message.error('截图失败，可能是由于跨源安全限制。请联系管理员检查服务器CORS配置。');
+    return undefined;
+  }
+}
 
     // 显示消息提示的函数
     const showMessage = (msg) => {
@@ -404,7 +471,7 @@ export default defineComponent({
           const alertData = {
             rule_id: 'stranger-login',
             level: 'ALERT',
-            danger_level: '低',
+            danger_level: 'low',
             source_type: 'Stranger attack',
             event_time: new Date().toISOString(),
             message: '检测到陌生人恶意登录他人账号',
