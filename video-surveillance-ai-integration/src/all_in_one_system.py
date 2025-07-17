@@ -97,6 +97,7 @@ class AllInOneSystem:
     def __init__(self, args):
         """初始化系统"""
         self.args = args
+        print(f"AllInOneSystem初始化, args.web_interface={getattr(args, 'web_interface', None)}")
 
         # 创建输出目录
         os.makedirs(args.output, exist_ok=True)
@@ -134,7 +135,7 @@ class AllInOneSystem:
                 host='localhost',
                 port=3306,
                 user='root',
-                password='cangshu606',
+                password='',
                 database='video_surveillance_alerts',
                 charset='utf8mb4'
             )
@@ -193,8 +194,12 @@ class AllInOneSystem:
 
         # 初始化Web服务器（如果可用且启用）
         self.app = None
+        print(f"HAS_FLASK={HAS_FLASK}, args.web_interface={args.web_interface}")
         if args.web_interface and HAS_FLASK:
+            print("即将调用init_web_server()...")
             self.init_web_server()
+        else:
+            print("未调用init_web_server，条件不满足")
 
         # 初始化视频录制器，如果用户传了 --record 参数，就把最终处理后的画面同时录制到视频文件里保存
         self.video_writer = None
@@ -224,7 +229,14 @@ class AllInOneSystem:
 
     def init_web_server(self):
         """初始化Web服务器"""
-        self.app = Flask(__name__, template_folder='../templates')  # 指定 HTML 模板文件夹位置
+        print("init_web_server方法被调用")
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        self.app = Flask(
+            __name__,
+            template_folder=os.path.join(BASE_DIR, '../templates'),
+            static_folder=os.path.join(BASE_DIR, '../static')
+        )
+        print("Flask static_folder:", self.app.static_folder)
 
         # 添加静态文件服务
         @self.app.route('/alerts_images/<path:relpath>')
@@ -613,6 +625,69 @@ class AllInOneSystem:
             else:
                 return jsonify({'success': False, 'message': '未知操作'})
 
+        @self.app.route('/api/report_stranger_login', methods=['POST'])
+        def report_stranger_login():
+            """
+            外部前端上传陌生人登录图片和告警信息
+            """
+            from werkzeug.utils import secure_filename
+            import os
+            from datetime import datetime
+            # 1. 获取表单数据
+            username = request.form.get('username')
+            ip = request.form.get('ip')
+            extra = request.form.get('extra', '')
+            file = request.files.get('image')
+
+            if not file or not username:
+                return jsonify({'success': False, 'message': '缺少图片或用户名'}), 400
+
+            # 2. 保存图片到本地
+            filename = secure_filename(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
+            save_dir = os.path.join(os.getcwd(), 'alerts')  # 确保和你原有图片目录一致
+            os.makedirs(save_dir, exist_ok=True)
+            save_path = os.path.join(save_dir, filename)
+            file.save(save_path)
+            rel_path = os.path.relpath(save_path, os.getcwd())  # 存相对路径
+
+            # 3. 写入数据库
+            event_id = None
+            if self.alert_database:
+                try:
+                    from models.alert.alert_event import AlertEvent, AlertLevel
+                except ImportError:
+                    return jsonify({'success': False, 'message': '无法导入AlertEvent'}), 500
+                event = AlertEvent(
+                    id=None,  # MySQL自增
+                    rule_id='stranger_login',
+                    level=AlertLevel.ALERT,
+                    danger_level='medium',
+                    source_type='login',
+                    timestamp=datetime.now().timestamp(),
+                    message=f"检测到陌生人登录：{username}，IP：{ip}",
+                    details={'ip': ip, 'extra': extra},
+                    frame_idx=0,
+                    acknowledged=False,
+                    related_events=[]
+                )
+                event_id = self.alert_database.save_alert_event(event, image_paths={'login': rel_path})
+
+            return jsonify({'success': True, 'event_id': event_id, 'image_path': rel_path})
+
+        @self.app.route('/ai_report')
+        def ai_report_page():
+            return render_template('ai_report.html')
+
+        # 注册AI日报API
+        try:
+            print("准备注册AI日报API Blueprint")
+            from api.daily_report_api import init_daily_report_api
+            init_daily_report_api(self.app)
+            print("AI日报API Blueprint注册完成")
+            logger.info("已集成AI日报API路由")
+        except Exception as e:
+            logger.error(f"集成AI日报API失败: {e}")
+
         def run_web_server():
             """在单独的线程中运行Web服务器"""
             if self.app is not None:
@@ -706,7 +781,10 @@ class AllInOneSystem:
             logger.error(f"无法打开视频源: {source}")
             self.running = False
             return
-
+        
+        # 设置较低的目标分辨率
+        target_width = int(self.args.width * 0.02)  # 例如，设为原宽度的2%
+        target_height = int(self.args.height * 0.02)  # 例如，设为原高度的2%
         # 设置分辨率
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.args.width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.args.height)
@@ -878,12 +956,21 @@ class AllInOneSystem:
                         if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
                             # 查找1.5秒内的音频事件
                             audio_msgs = []
-                            for label, score, ts in list(self.recent_audio_events):
+                            latest_db_stats = None
+                            for event in reversed(self.recent_audio_events):
+                                labels, scores, ts, *rest = event if len(event) >= 4 else (*event, None)
                                 if now - ts < 1.5:
-                                    audio_msgs.append(f"声音: {label}({score:.2f})")
+                                    # 合并分贝信息（只要有audio_db_stats）
+                                    audio_db_stats = rest[0] if rest else None
+                                    if not latest_db_stats and audio_db_stats:
+                                        latest_db_stats = audio_db_stats
+                                    for label, score in zip(labels, scores):
+                                        audio_msgs.append(f"声音: {label}({score:.2f})")
                             if audio_msgs:
                                 alert['desc'] += '；' + '；'.join(audio_msgs)
-                                alert['audio_labels'] = [label for label, score, ts in self.recent_audio_events if now - ts < 1.5]
+                                alert['audio_labels'] = [label for label, score, ts, *_ in self.recent_audio_events if now - ts < 1.5]
+                            if latest_db_stats:
+                                alert['audio_db_stats'] = latest_db_stats
                     # 更新all_alerts和recent_alerts
                     for alert in alerts:
                         alert_info = {
@@ -1318,11 +1405,8 @@ class AllInOneSystem:
     def add_audio_alert(self, labels, scores, audio_db_stats=None):
         """供音频监控模块调用，推送声学异常告警，支持一人/多人喧哗"""
         now = time.time()
-        # 记录音频事件到队列
-        if not labels or len(labels) == 0:
-            # 无声音，不生成声学告警，仅在详情中可体现
-            return
-        self.recent_audio_events.append((labels, scores, now))
+        # 记录音频事件到队列，包含audio_db_stats
+        self.recent_audio_events.append((labels, scores, now, audio_db_stats))
         # 检查最近2秒内是否有打架/摔倒类行为告警
         recent_behavior = False
         with self.alert_lock:
@@ -1336,8 +1420,31 @@ class AllInOneSystem:
                     if now - alert_ts < 2.0:
                         recent_behavior = True
                         break
-        if not recent_behavior:
-            # 只要检测到声音就生成“Classroom Noise”告警
+        # 始终写入分贝告警（环境噪音），只要audio_db_stats存在且分贝超过阈值
+        noise_db_threshold = 50  # 可根据实际环境调整
+        if audio_db_stats and audio_db_stats.get('avg_db', 0) > noise_db_threshold:
+            alert_info = {
+                'id': str(uuid.uuid4()),
+                'type': 'Environment Noise',
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'confidence': float(audio_db_stats.get('avg_db', 0)),
+                'frame': '',
+                'desc': f"检测到环境噪音，平均分贝: {audio_db_stats.get('avg_db', 0)}dB，最高: {audio_db_stats.get('max_db', 0)}dB，最低: {audio_db_stats.get('min_db', 0)}dB",
+                'handled': False,
+                'handled_time': None,
+                'person_id': '',
+                'person_class': '',
+                'audio_labels': labels,
+                'audio_db_stats': audio_db_stats
+            }
+            with self.alert_lock:
+                self.all_alerts.append(alert_info)
+                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
+                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
+                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
+                self.recent_alerts.append(alert_info)
+        # 原有逻辑：如有声学标签且无相关行为，生成Classroom Noise告警
+        if labels and len(labels) > 0 and not recent_behavior:
             alert_type = 'Classroom Noise'
             desc = f"检测到教室喧哗"
             alert_info = {
@@ -1351,7 +1458,8 @@ class AllInOneSystem:
                 'handled_time': None,
                 'person_id': '',
                 'person_class': '',
-                'audio_labels': labels
+                'audio_labels': labels,
+                'audio_db_stats': audio_db_stats
             }
             with self.alert_lock:
                 self.all_alerts.append(alert_info)
@@ -1415,6 +1523,7 @@ def parse_args():
 
 def main():
     """主函数"""
+    print("main函数已启动")
     args = parse_args()
     system = AllInOneSystem(args)
     system.start()

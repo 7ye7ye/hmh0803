@@ -379,6 +379,7 @@ class DangerRecognizer:
         return alerts
     
     def _track_danger_zone_approach(self, object_detections):
+        """检测人员接近危险区域但未进入区域的告警"""
         alerts = []
         current_frame = self.current_frame
         cooldown_frames = int(self.config['fps'])  # 1秒冷却
@@ -569,15 +570,189 @@ class DangerRecognizer:
         """分析危险行为"""
         if len(self.history) < 3:
             return []
+        
         alerts = []
-        if object_detections is None:
-            object_detections = []
-        frame_height, frame_width = frame.shape[:2]
+        frame_height, frame_width = frame.shape[:2]  # 获取帧的尺寸
         
         # 检查冷却时间（摔倒检测除外）
         in_cooldown = self.current_frame - self.last_alert_frame <= self.config['alert_cooldown']
+        
+        # 摔倒检测（不受冷却时间限制）
+        fall_alerts = []
+        if len(self.history) >= 10:  # 需要更多历史记录来判断摔倒事件
+            # 新增：检查是否有人员存在，避免摄像设备运动被误判
+            has_person = False
+            if object_detections:
+                persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
+                has_person = len(persons) > 0
+            # 只有在检测到人员时才进行摔倒检测
+            if has_person:
+                # 新增：预过滤条件，确保有足够的运动强度
+                recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
+                avg_magnitude = np.mean(recent_magnitudes)
+                
+                # 如果平均运动幅度太小，直接跳过摔倒检测
+                if avg_magnitude < 2.0:  # 降低最小运动幅度要求
+                    pass
+                else:
+                    recent_vertical_motions = [h['vertical_motion'] for h in self.history[-8:]]
+                    max_vertical_motion = np.max(recent_vertical_motions)
+                    
+                    # 新增：检查是否有明显的垂直向下运动
+                    downward_motion_count = sum(1 for v in recent_vertical_motions if v > 3)  # 降低向下运动阈值
+                    upward_motion_count = sum(1 for v in recent_vertical_motions if v < -4)  # 统计向上（负值）
+                    if upward_motion_count >= 2:
+                        # 如果有多帧明显向上运动，直接跳过摔倒检测
+                        pass
+                    elif downward_motion_count < 2:  # 降低帧数要求
+                        pass  # 跳过摔倒检测
+                    else:
+                        # 新增：统计水平方向运动
+                        recent_horizontal_motions = []
+                        if isinstance(features, dict) and 'motion_vectors' in features:
+                            for v in features['motion_vectors']:
+                                if len(v) >= 3:
+                                    recent_horizontal_motions.append(v[2])  # fx
+                        elif features:
+                            for f in features:
+                                if hasattr(f, 'data') and len(f.data) >= 1:
+                                    recent_horizontal_motions.append(f.data[0])  # dx
+                        if recent_horizontal_motions:
+                            max_horizontal_motion = np.max(np.abs(recent_horizontal_motions))
+                        else:
+                            max_horizontal_motion = 0
+                        recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
+                        recent_avg = np.mean(recent_magnitudes[-3:])
+                        earlier_avg = np.mean(recent_magnitudes[:-3]) if len(recent_magnitudes) > 3 else 0
+                        current_features = self.history[-1]['feature_count']
+                        prev_features = self.history[-2]['feature_count'] if len(self.history) > 1 else 0
 
-        # 五种类型的告警处理
+                        # 新增：检测摄像头移动（避免误判）
+                        camera_motion_detected = False
+                        if len(self.history) >= 5:
+                            # 检查最近几帧的运动模式
+                            recent_motion_areas = [h['motion_area'] for h in self.history[-5:]]
+                            avg_motion_area = np.mean(recent_motion_areas)
+                            
+                            # 如果运动面积很大且持续，可能是摄像头移动
+                            if avg_motion_area > 0.4:  # 40%以上的画面都在运动
+                                camera_motion_detected = True
+                            
+                            # 检查运动方向的一致性（摄像头移动通常有方向性）
+                            if isinstance(features, dict) and 'motion_vectors' in features:
+                                motion_vectors = features['motion_vectors']
+                                if len(motion_vectors) > 10:
+                                    # 计算运动向量的方向一致性
+                                    directions = []
+                                    for v in motion_vectors:
+                                        if len(v) >= 4:
+                                            dx, dy = v[2], v[3]
+                                            if abs(dx) > 0.1 or abs(dy) > 0.1:
+                                                directions.append((dx, dy))
+                            
+                                    if len(directions) > 5:
+                                        # 计算方向的一致性
+                                        avg_dx = np.mean([d[0] for d in directions])
+                                        avg_dy = np.mean([d[1] for d in directions])
+                                        direction_consistency = np.sqrt(avg_dx**2 + avg_dy**2)
+                                        
+                                        # 如果方向一致性很高，可能是摄像头移动
+                                        if direction_consistency > 3.0:
+                                            camera_motion_detected = True
+
+                        confidence = 0.0
+                        condition_details = []
+                        
+                        # 只有在没有检测到摄像头移动时才进行摔倒检测
+                        if not camera_motion_detected:
+                            # 条件1：垂直向下运动大 或 水平运动特别大（提高水平阈值）
+                            if max_vertical_motion > 8 or max_horizontal_motion > 15:  # 水平阈值从8提高到15
+                                confidence += 0.4
+                                if max_vertical_motion > 8:
+                                    condition_details.append("垂直向下运动大")
+                                if max_horizontal_motion > 15:
+                                    condition_details.append("水平运动大（横向倒地）")
+                            # 条件2：运动后静止（保持原有或更严格）
+                            if earlier_avg > 5 and recent_avg < 1.5:
+                                confidence += 0.4
+                                condition_details.append("运动后静止")
+                            # 条件3：特征点突增（提高权重和阈值）
+                            if prev_features > 0 and current_features > prev_features * 1.5 and current_features > 5:  # 从1.2/3提高到1.5/5
+                                confidence += 0.3
+                                condition_details.append("特征点突增")
+                            # 条件4：垂直运动持续（提高阈值）
+                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 5)  # 从3提高到5
+                            horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)  # 从3提高到5
+                            if vertical_motion_count >= 3 or horizontal_motion_count >= 3:  # 从2提高到3
+                                confidence += 0.3
+                                condition_details.append("运动持续")
+                            # 新增条件5：要求更明显的运动幅度
+                            if max_vertical_motion > 12 or max_horizontal_motion > 12:  # 新增高幅度运动条件
+                                confidence += 0.2
+                                condition_details.append("高幅度运动")
+                        else:
+                            # 检测到摄像头移动，降低置信度
+                            confidence = 0.0
+                            condition_details.append("检测到摄像头移动，忽略摔倒检测")
+
+                        fall_cooldown_frames = 20  # 从10提高到20帧
+                        cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
+                        if (confidence >= 0.8 and cooldown_ok):  # 从0.6提高到0.8
+                            print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
+                            print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
+                            # ========== 新增：补充摔倒检测的位置信息和描述 ==========
+                            if object_detections:
+                                self.update_person_tracking(object_detections)
+                            location = {'x': 0, 'y': 0, 'rel_x': 0.0, 'rel_y': 0.0, 'description': '未知位置'}
+                            person_id = None
+                            if object_detections:
+                                persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
+                                if persons:
+                                    # 选最大bbox面积的person
+                                    person = max(persons, key=lambda d: (d['bbox'][2]-d['bbox'][0])*(d['bbox'][3]-d['bbox'][1]))
+                                    bbox = person['bbox']
+                                    center_x = (bbox[0] + bbox[2]) // 2
+                                    center_y = (bbox[1] + bbox[3]) // 2
+                                    rel_x = round(center_x / frame_width * 100, 2)
+                                    rel_y = round(center_y / frame_height * 100, 2)
+                                    x_desc = "左侧" if rel_x < 33.33 else "右侧" if rel_x > 66.67 else "中间"
+                                    y_desc = "上方" if rel_y < 33.33 else "下方" if rel_y > 66.67 else "中间"
+                                    location = {
+                                        'x': center_x,
+                                        'y': center_y,
+                                        'rel_x': rel_x,
+                                        'rel_y': rel_y,
+                                        'description': f"画面{x_desc}{y_desc}"
+                                    }
+                                    person_id = person.get('person_id', None)
+                                    if person_id is None:
+                                        # 兜底分配
+                                        person_id = f"temp_{hash(tuple(bbox))}"
+                            id_str = f"（ID: {person_id}）" if person_id else ""
+                            desc = f"检测到人员{id_str}在{location['description']}发生摔倒"
+                            # ========== End ==========
+                            fall_alerts.append({
+                                'type': self.DANGER_TYPES['fall'],
+                                'danger_level': self.DANGER_LEVELS['fall'],
+                                'confidence': confidence,
+                                'frame': self.current_frame,
+                                'vertical_motion': max_vertical_motion,
+                                'threshold': self.config['fall_motion_threshold'],
+                                'event_id': f"fall_{self.current_frame}",
+                                'location': location,
+                                'desc': desc,
+                                'person_id': person_id,
+                                'trigger_id': person_id,  # 新增：用于前端"触发对象"显示
+                            })
+                            self.last_fall_frame = self.current_frame
+                            # 增加行为统计
+                            self.behavior_stats['fall_count'] += 1
+        
+        # 如果在冷却时间内，只返回摔倒检测结果
+        if in_cooldown:
+            return fall_alerts
+        
+        # 其他类型的告警处理
         # 1. 检测突然运动（仅统计，不告警）
         current_features = self.history[-1]['feature_count']
         prev_features = self.history[-2]['feature_count'] if len(self.history) > 1 else 0
@@ -611,6 +786,9 @@ class DangerRecognizer:
             for alert in dwell_alerts:
                 alerts.append(alert)
 
+        # 将摔倒告警添加到总告警列表中
+        alerts.extend(fall_alerts)
+        
         # 4. 打架检测
         if object_detections:
             # 移除重复统计，只在_detect_fighting中统计
@@ -725,24 +903,24 @@ class DangerRecognizer:
                         condition_details = []
                         if not camera_motion_detected:
                             if max_vertical_motion > 12 or max_horizontal_motion > 25:
-                                confidence += 0.4
+                                confidence += 0.3
                                 if max_vertical_motion > 12:
                                     condition_details.append("垂直向下运动大")
                                 if max_horizontal_motion > 25:
                                     condition_details.append("水平运动大（横向倒地）")
                             if earlier_avg > 8 and recent_avg < 0.5:  # 更严格
-                                confidence += 0.4
+                                confidence += 0.3
                                 condition_details.append("运动后静止(更严格)")
                             if prev_features > 0 and current_features > prev_features * 1.5 and current_features > 5:
-                                confidence += 0.3
+                                confidence += 0.2
                                 condition_details.append("特征点突增")
                             vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 5)
                             horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)
                             if vertical_motion_count >= 3 or horizontal_motion_count >= 3:
-                                confidence += 0.3
+                                confidence += 0.2
                                 condition_details.append("运动持续")
                             if max_vertical_motion > 18 or max_horizontal_motion > 18:
-                                confidence += 0.2
+                                confidence += 0.1
                                 condition_details.append("高幅度运动")
                             # 新增：高度显著下降判据
                             if object_detections:
@@ -754,15 +932,17 @@ class DangerRecognizer:
                                     height = bbox[3] - bbox[1]
                                     prev_max_height = self.person_max_heights.get(person_id, height)
                                     if height < prev_max_height * 0.7:  # 高度下降30%
-                                        confidence += 0.3
+                                        confidence += 0.1
                                         condition_details.append("高度显著下降")
                                     self.person_max_heights[person_id] = max(prev_max_height, height)
                         else:
                             confidence = 0.0
                             condition_details.append("检测到摄像头移动，忽略摔倒检测")
+                        # 限制置信度最大为1.0
+                        confidence = min(confidence, 1.0)
                         fall_cooldown_frames = 40  # 冷却时间加长
                         cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
-                        if (confidence >= 0.95 and cooldown_ok):
+                        if (confidence >= 0.7 and cooldown_ok):
                             print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
                             print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
                             if object_detections:
@@ -855,22 +1035,7 @@ class DangerRecognizer:
         # 如果有告警，更新最后告警帧
         if alerts:
             self.last_alert_frame = self.current_frame
-        # 统一alerts去重
-        unique = {}
-        for alert in alerts:
-            # 用type, person_id, region_id, 秒级时间唯一
-            alert_time = alert.get('alert_time')
-            if not alert_time:
-                # 从desc中提取时间（前19位）
-                desc = alert.get('desc', '')
-                if len(desc) >= 19 and desc[:4].isdigit():
-                    alert_time = desc[:19]
-                else:
-                    alert_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            key = (alert.get('type'), alert.get('person_id'), alert.get('region_id'), alert_time)
-            if key not in unique:
-                unique[key] = alert
-        alerts = list(unique.values())
+        
         return alerts
     
     def _detect_fighting(self, object_detections, features):
