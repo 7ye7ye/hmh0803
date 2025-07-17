@@ -416,6 +416,30 @@ export default defineComponent({
           showMessage('人脸验证信息采集成功')
           failCount.value = 0 // 成功则重置失败计数
         }
+
+        const userData = response.data
+        if (userData && userData.username) {
+          const { username, role } = userData
+          // 在 store 中保存用户信息
+          loginUserStore.setLoginUser({
+            username,
+            role,
+            loginTime: new Date().toISOString()
+          })
+          currentRole.value = role
+          isLoggedIn.value = true
+          currentUsername.value = username
+          console.log('role:', role)
+          const redirect = route.query.redirect
+          if (role === 'student') {
+            router.push(redirect || '/home')
+          } else if (role === 'teacher') {
+            router.push('/home')
+          }
+        } else {
+          loginUserStore.setLoginUser({ username: '未登录' })
+          showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
+        }
       } catch (error) {
         console.error('人脸验证失败:', error)
         failCount.value++
