@@ -219,6 +219,7 @@ class AllInOneSystem:
             logger.info("未启用音频监控")
 
         self.recent_audio_events = collections.deque(maxlen=20)  # 缓存最近音频事件（label, score, timestamp）
+        self.latest_audio_db = None  # 新增：用于分贝共享
 
         logger.info("全功能视频监控系统初始化完成")
 
@@ -296,7 +297,10 @@ class AllInOneSystem:
                             'region_name': alert.get('region_name', '')
                         }),
                         # 新增：声学检测结果
-                        'audio_labels': alert.get('audio_labels', None)
+                        'audio_labels': alert.get('audio_labels', None),
+                        'audio_db_stats': alert.get('audio_db_stats', None),
+                        'volume_exceeded': alert.get('volume_exceeded', False),
+                        'volume_threshold': alert.get('volume_threshold', None)
                     }
                     alerts_data.append(alert_data)
                 return jsonify(alerts_data)
@@ -875,27 +879,38 @@ class AllInOneSystem:
                     # 检测危险行为
                     alerts = self.danger_recognizer.process_frame(process_frame, features, object_detections)
 
-                    # 音视频联动：如有打架/摔倒告警，合并音频信息
-                    now = time.time()
-                    for alert in alerts:
-                        if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
-                            # 查找1.5秒内的音频事件
-                            audio_msgs = []
-                            latest_db_stats = None
-                            for event in reversed(self.recent_audio_events):
-                                labels, scores, ts, *rest = event if len(event) >= 4 else (*event, None)
-                                if now - ts < 1.5:
-                                    # 合并分贝信息（只要有audio_db_stats）
-                                    audio_db_stats = rest[0] if rest else None
-                                    if not latest_db_stats and audio_db_stats:
-                                        latest_db_stats = audio_db_stats
-                                    for label, score in zip(labels, scores):
-                                        audio_msgs.append(f"声音: {label}({score:.2f})")
+                    # 音视频联动：所有行为告警都合并音频信息
+                    audio_msgs = []
+                    if alerts and self.recent_audio_events:
+                        last_event = self.recent_audio_events[-1]
+                        labels, scores, ts, audio_db_stats = last_event if len(last_event) >= 4 else (*last_event, None)
+                        for alert in alerts:
+                            alert['audio_db_stats'] = audio_db_stats if audio_db_stats else None
+                            alert['audio_labels'] = labels if labels else None
+                            # 检查是否超过音量阈值（设定为60分贝）
+                            volume_threshold = 60
+                            max_db = audio_db_stats.get('max_db', 0) if audio_db_stats else 0
+                            if max_db > volume_threshold:
+                                alert['volume_exceeded'] = True
+                                alert['volume_threshold'] = volume_threshold
+                                logger.info(f"[行为告警音频联动] 设置音频数据: max_db={max_db}, volume_exceeded={alert.get('volume_exceeded', False)}")
+                            else:
+                                alert['volume_exceeded'] = False
+                                alert['volume_threshold'] = volume_threshold
+                                logger.info("[行为告警音频联动] 未超过音量阈值或无分贝数据")
+                            # 追加音频描述
+                            if labels and scores:
+                                for label, score in zip(labels, scores):
+                                    audio_msgs.append(f"声音: {label}({score:.2f})")
                             if audio_msgs:
                                 alert['desc'] += '；' + '；'.join(audio_msgs)
-                                alert['audio_labels'] = [label for label, score, ts, *_ in self.recent_audio_events if now - ts < 1.5]
-                            if latest_db_stats:
-                                alert['audio_db_stats'] = latest_db_stats
+                    elif alerts:
+                        for alert in alerts:
+                            alert['audio_db_stats'] = None
+                            alert['audio_labels'] = None
+                            alert['volume_exceeded'] = False
+                            alert['volume_threshold'] = 60
+                            logger.info("[行为告警音频联动] recent_audio_events为空，无音频数据")
                     # 更新all_alerts和recent_alerts
                     for alert in alerts:
                         alert_info = {
@@ -920,7 +935,10 @@ class AllInOneSystem:
                                 'region_name': alert.get('region_name', '')
                             }),
                             # 新增：声学检测结果
-                            'audio_labels': alert.get('audio_labels', None)
+                            'audio_labels': alert.get('audio_labels', None),
+                            'audio_db_stats': alert.get('audio_db_stats', None),
+                            'volume_exceeded': alert.get('volume_exceeded', False),
+                            'volume_threshold': alert.get('volume_threshold', None)
                         }
                         
                         with self.alert_lock:
@@ -1032,7 +1050,12 @@ class AllInOneSystem:
                         'handled': False,  # 默认未处理
                         'handled_time': None,  # 处理时间
                         'person_id': alert.get('person_id', ''),  # 新增：person id
-                        'person_class': alert.get('person_class', '')  # 新增：person类别
+                        'person_class': alert.get('person_class', ''),  # 新增：person类别
+                        # 新增：声学检测结果
+                        'audio_labels': alert.get('audio_labels', None),
+                        'audio_db_stats': alert.get('audio_db_stats', None),
+                        'volume_exceeded': alert.get('volume_exceeded', False),
+                        'volume_threshold': alert.get('volume_threshold', None)
                     }
                     
                     with self.alert_lock:
@@ -1330,9 +1353,13 @@ class AllInOneSystem:
     def add_audio_alert(self, labels, scores, audio_db_stats=None):
         """供音频监控模块调用，推送声学异常告警，支持一人/多人喧哗"""
         now = time.time()
-        # 记录音频事件到队列，包含audio_db_stats
+        logger.info(f"收到音频告警: labels={labels}, scores={scores}, audio_db_stats={audio_db_stats}")
+
+        # 1. 无论labels是否为空，都推送音频事件到队列
         self.recent_audio_events.append((labels, scores, now, audio_db_stats))
-        # 检查最近2秒内是否有打架/摔倒类行为告警
+        logger.info(f"音频事件已添加到队列，当前队列长度: {len(self.recent_audio_events)}")
+
+        # 2. 只有labels非空且无recent_behavior时才生成Classroom Noise告警
         recent_behavior = False
         with self.alert_lock:
             for alert in list(self.all_alerts)[-10:]:
@@ -1344,34 +1371,27 @@ class AllInOneSystem:
                         continue
                     if now - alert_ts < 2.0:
                         recent_behavior = True
+                        logger.info(f"发现相关行为告警: {alert.get('type')}")
                         break
-        # 始终写入分贝告警（环境噪音），只要audio_db_stats存在且分贝超过阈值
-        noise_db_threshold = 50  # 可根据实际环境调整
-        if audio_db_stats and audio_db_stats.get('avg_db', 0) > noise_db_threshold:
-            alert_info = {
-                'id': str(uuid.uuid4()),
-                'type': 'Environment Noise',
-                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                'confidence': float(audio_db_stats.get('avg_db', 0)),
-                'frame': '',
-                'desc': f"检测到环境噪音，平均分贝: {audio_db_stats.get('avg_db', 0)}dB，最高: {audio_db_stats.get('max_db', 0)}dB，最低: {audio_db_stats.get('min_db', 0)}dB",
-                'handled': False,
-                'handled_time': None,
-                'person_id': '',
-                'person_class': '',
-                'audio_labels': labels,
-                'audio_db_stats': audio_db_stats
-            }
-            with self.alert_lock:
-                self.all_alerts.append(alert_info)
-                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
-                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
-                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
-                self.recent_alerts.append(alert_info)
-        # 原有逻辑：如有声学标签且无相关行为，生成Classroom Noise告警
         if labels and len(labels) > 0 and not recent_behavior:
             alert_type = 'Classroom Noise'
             desc = f"检测到教室喧哗"
+            # 统计最近10秒内所有音频事件的分贝
+            db_list = []
+            now_ts = now
+            for event in list(self.recent_audio_events)[::-1]:
+                _, _, ts, db_stats = event if len(event) >= 4 else (*event, None)
+                if db_stats and ts and now_ts - ts <= 10:
+                    db_list.append(db_stats)
+                elif ts and now_ts - ts > 10:
+                    break
+            # 计算最大、最小、平均分贝
+            max_db = max((d.get('max_db', 0) for d in db_list), default=audio_db_stats.get('max_db', 0) if audio_db_stats else 0)
+            min_db = min((d.get('min_db', 0) for d in db_list), default=audio_db_stats.get('min_db', 0) if audio_db_stats else 0)
+            avg_db = sum((d.get('avg_db', 0) for d in db_list)) / len(db_list) if db_list else (audio_db_stats.get('avg_db', 0) if audio_db_stats else 0)
+            merged_db_stats = {'max_db': round(max_db, 1), 'min_db': round(min_db, 1), 'avg_db': round(avg_db, 1)}
+            # 只在desc中追加分贝统计描述
+            desc += f"；声学检测结果：最大分贝{merged_db_stats['max_db']}，最小分贝{merged_db_stats['min_db']}，平均分贝{merged_db_stats['avg_db']}"
             alert_info = {
                 'id': str(uuid.uuid4()),
                 'type': alert_type,
@@ -1384,7 +1404,7 @@ class AllInOneSystem:
                 'person_id': '',
                 'person_class': '',
                 'audio_labels': labels,
-                'audio_db_stats': audio_db_stats
+                'audio_db_stats': merged_db_stats
             }
             with self.alert_lock:
                 self.all_alerts.append(alert_info)
@@ -1392,10 +1412,13 @@ class AllInOneSystem:
                 self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
                 self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
                 self.recent_alerts.append(alert_info)
-        # 新增：统计声学异常（不再生成“声学异常”告警）
+        # 新增：统计声学异常（不再生成"声学异常"告警）
         if hasattr(self, 'danger_recognizer') and hasattr(self.danger_recognizer, 'behavior_stats'):
             stats = self.danger_recognizer.behavior_stats
             stats['audio_event_count'] = stats.get('audio_event_count', 0) + 1
+
+        if audio_db_stats and 'max_db' in audio_db_stats:
+            self.latest_audio_db = audio_db_stats['max_db']
 
 
 def parse_args():
