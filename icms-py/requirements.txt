@@ -1,10 +1,9 @@
 fastapi[all]
 deepface==0.0.90
-tensorflow==2.15.0
-tf_keras==2.15.0
+tensorflow==2.16.1
 numpy==1.26.4
 opencv-contrib-python==4.8.0.76
-mediapipe==0.10.9
+mediapipe==0.10.13  # 使用镜像源中存在的版本
 imutils
 python-dotenv
 fastapi_cdn_host

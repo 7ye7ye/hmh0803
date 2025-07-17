@@ -199,7 +199,7 @@ async def compare_face_deepface(request: CompareRequest):
 @router.post("/signin")
 async def compare_face_signin(request: Request, signin_request: SigninRequest):
     """
-    接收来自后端的用户向量，与摄像头实时捕捉到的人脸进行比对和活体检测
+    接收来自前端的用户名和签到快照，从签到快照中提取人脸向量与数据库中对应用户的人脸向量对比，返回签到是否成功的信息
     """
     logger.info(f"收到签到请求 - URL: {request.url}")
     logger.info(f"请求方法: {request.method}")

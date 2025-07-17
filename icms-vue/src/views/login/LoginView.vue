@@ -175,7 +175,7 @@ import { message } from 'ant-design-vue';
 import { videoApi } from '@/api/video'
 import Vue3SlideVerify from 'vue3-slide-verify'
 import 'vue3-slide-verify/dist/style.css'
-
+import html2canvas from 'html2canvas';
 
 export default defineComponent({
   name: 'LoginView',
@@ -262,7 +262,8 @@ export default defineComponent({
       username: '',
       password: '',
       role: 'student',
-      faceEmbedding: null // 用于存储特征向量
+      faceEmbedding: null, // 用于存储特征向量
+      faceImage: '',
     })
 
     // 注册表单数据
@@ -326,18 +327,6 @@ export default defineComponent({
       captureFaceForLogin()      // 重新捕获
     }
 
-    // 采集当前视频流画面为base64图片
-    const captureFaceImage = () => {
-      const video = document.querySelector('.stream-image');
-      if (!video) return '';
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 400;
-      canvas.height = video.videoHeight || 300;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/png');
-    }
-
     // 显示消息提示的函数
     const showMessage = (msg) => {
       console.log('msg:', msg)
@@ -380,13 +369,47 @@ export default defineComponent({
       }
     }
 
+    const captureFaceImage = async () => {
+        console.time('captureFaceImage');
+        console.log('[captureFaceImage] 开始从视频容器截图');
+
+        try {
+          // 获取视频容器元素
+          const videoContainer = document.querySelector('.video-container');
+          if (!videoContainer) {
+            console.error('[captureFaceImage] 未找到视频容器元素');
+            console.timeEnd('captureFaceImage');
+            return '';
+          }
+
+          // 配置html2canvas
+          const canvas = await html2canvas(videoContainer, {
+            logging: true,           // 启用日志
+            useCORS: true,           // 尝试跨域处理
+            scale: 1,                // 缩放比例
+            backgroundColor: null    // 保持透明背景
+          });
+
+          // 转换为Base64
+          const base64Image = canvas.toDataURL('image/png');
+          console.log(`[captureFaceImage] 成功生成Base64，长度: ${base64Image.length}`);
+          console.timeEnd('captureFaceImage');
+          return base64Image;
+        } catch (error) {
+          console.error('[captureFaceImage] 截图过程出错:', error);
+          console.timeEnd('captureFaceImage');
+          return '';
+        }
+      };
+
      // 登录时捕获人脸的函数
      const captureFaceForLogin = async () => {
       isProcessing.value =true
       try {
         // 点击人脸验证时立即采集图片
-        loginForm.faceImage = captureFaceImage();
+        loginForm.faceImage = await captureFaceImage();
         console.log('采集到的图片base64:', loginForm.faceImage);
+
         const response =await userApi.login(loginForm)
         console.log('faceEmbedding:', response.data.faceEmbedding)
 
@@ -396,9 +419,9 @@ export default defineComponent({
           failCount.value = 0 // 成功则重置失败计数
         }
       } catch (error) {
-        console.error('人脸验证采集失败:', error)
+        console.error('人脸验证失败:', error)
         failCount.value++
-        showMessage('人脸验证采集失败，请确认该账户是否为本人')
+        showMessage('人脸验证失败，请确认该账户是否为本人')
         // 超过1次则上报告警
         if (failCount.value >= 1) {
           const alertData = {
