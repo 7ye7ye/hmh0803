@@ -64,6 +64,7 @@ except ImportError as e:
 try:
     from flask import Flask, render_template, Response, jsonify, request
     import threading
+    from flask_cors import CORS
 
     HAS_FLASK = True
     logger.info("成功导入Flask Web模块")
@@ -238,6 +239,9 @@ class AllInOneSystem:
             static_folder=os.path.join(BASE_DIR, '../static')
         )
         print("Flask static_folder:", self.app.static_folder)
+        from flask_cors import CORS
+        CORS(self.app, origins=["http://localhost:8085"], supports_credentials=True)  # 允许指定来源的跨域请求，支持凭证
+        logger.info("CORS已启用，允许前端地址 http://localhost:8085")
 
         # 添加静态文件服务
         @self.app.route('/alerts_images/<path:relpath>')
@@ -629,54 +633,151 @@ class AllInOneSystem:
             else:
                 return jsonify({'success': False, 'message': '未知操作'})
 
-        @self.app.route('/api/report_stranger_login', methods=['POST'])
+        @self.app.route('/alert/stranger', methods=['POST'])
         def report_stranger_login():
             """
-            外部前端上传陌生人登录图片和告警信息
+            外部前端上传陌生人登录base64图片和告警信息
             """
-            from werkzeug.utils import secure_filename
             import os
+            import base64
+            import json as pyjson
             from datetime import datetime
-            # 1. 获取表单数据
-            username = request.form.get('username')
-            ip = request.form.get('ip')
-            extra = request.form.get('extra', '')
-            file = request.files.get('image')
 
-            if not file or not username:
-                return jsonify({'success': False, 'message': '缺少图片或用户名'}), 400
+            # 兼容JSON方式上传
+            if request.is_json:
+                data = request.get_json(force=True)
+                logger.info(f"接收到的JSON数据: {data}")
+                # 1. 获取字段
+                rule_id = data.get('rule_id', 'stranger-login').strip()
+                level = data.get('level')
+                danger_level = data.get('danger_level', '低').strip()  # 去除前后空格
+                source_type = data.get('source_type', 'Stranger attack')
+                event_time = data.get('event_time', datetime.now().isoformat())
+                message = data.get('message', '')
+                details = data.get('details', '{}')
+                frame_idx = data.get('frame_idx', 0)
+                acknowledged = data.get('acknowledged', False)
+                related_events = data.get('related_events', '[]')
+                photo_base64 = data.get('photo', '')
 
-            # 2. 保存图片到本地
-            filename = secure_filename(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
-            save_dir = os.path.join(os.getcwd(), 'alerts')  # 确保和你原有图片目录一致
-            os.makedirs(save_dir, exist_ok=True)
-            save_path = os.path.join(save_dir, filename)
-            file.save(save_path)
-            rel_path = os.path.relpath(save_path, os.getcwd())  # 存相对路径
+                logger.info(f"解析的字段: rule_id={rule_id}, level={level}, danger_level={danger_level}, photo_base64_len={len(photo_base64) if photo_base64 else 0}")
 
-            # 3. 写入数据库
-            event_id = None
-            if self.alert_database:
+                # 2. 解析details和related_events
                 try:
-                    from models.alert.alert_event import AlertEvent, AlertLevel
-                except ImportError:
-                    return jsonify({'success': False, 'message': '无法导入AlertEvent'}), 500
-                event = AlertEvent(
-                    id=None,  # MySQL自增
-                    rule_id='stranger_login',
-                    level=AlertLevel.ALERT,
-                    danger_level='medium',
-                    source_type='login',
-                    timestamp=datetime.now().timestamp(),
-                    message=f"检测到陌生人登录：{username}，IP：{ip}",
-                    details={'ip': ip, 'extra': extra},
-                    frame_idx=0,
-                    acknowledged=False,
-                    related_events=[]
-                )
-                event_id = self.alert_database.save_alert_event(event, image_paths={'login': rel_path})
+                    if isinstance(details, str):
+                        details = pyjson.loads(details)
+                except Exception:
+                    details = {}
+                try:
+                    if isinstance(related_events, str):
+                        related_events = pyjson.loads(related_events)
+                except Exception:
+                    related_events = []
 
-            return jsonify({'success': True, 'event_id': event_id, 'image_path': rel_path})
+                # 3. 保存base64图片
+                image_path = None
+                if photo_base64:
+                    try:
+                        header, b64data = photo_base64.split(',', 1) if ',' in photo_base64 else ('', photo_base64)
+                        imgdata = base64.b64decode(b64data)
+                        save_dir = os.path.join(os.getcwd(), 'alerts')
+                        os.makedirs(save_dir, exist_ok=True)
+                        filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_stranger_login.png"
+                        save_path = os.path.join(save_dir, filename)
+                        with open(save_path, 'wb') as f:
+                            f.write(imgdata)
+                        rel_path = os.path.relpath(save_path, os.getcwd())
+                        image_path = rel_path
+                        logger.info(f"图片保存成功: {image_path}")
+                    except Exception as e:
+                        logger.error(f"图片保存失败: {str(e)}")
+                        return jsonify({'success': False, 'message': f'图片保存失败: {str(e)}'}), 500
+
+                # 4. 写入数据库
+                event_id = None
+                if self.alert_database:
+                    try:
+                        from models.alert.alert_event import AlertEvent, AlertLevel
+                        # danger_level 映射
+                        level_map = {'高': AlertLevel.CRITICAL, '中': AlertLevel.ALERT, '低': AlertLevel.WARNING,
+                                     'CRITICAL': AlertLevel.CRITICAL, 'ALERT': AlertLevel.ALERT, 'WARNING': AlertLevel.WARNING}
+                        alert_level = level_map.get(danger_level, AlertLevel.ALERT)
+                        # 时间戳
+                        try:
+                            timestamp = datetime.fromisoformat(event_time).timestamp()
+                        except Exception:
+                            timestamp = datetime.now().timestamp()
+                        event = AlertEvent(
+                            id=None,
+                            rule_id=rule_id,
+                            level=alert_level,
+                            danger_level=danger_level,
+                            source_type=source_type,
+                            timestamp=timestamp,
+                            message=message,
+                            details=details,
+                            frame_idx=frame_idx,
+                            acknowledged=acknowledged,
+                            related_events=related_events
+                        )
+                        # 只有有图片时才传递image_paths，否则传None，避免image_path为None导致数据库报错
+                        if image_path:
+                            event_id = self.alert_database.save_alert_event(event, image_paths={'frame': image_path})
+                        else:
+                            event_id = self.alert_database.save_alert_event(event, image_paths=None)
+                        logger.info(f"数据库写入成功，event_id: {event_id}")
+                    except Exception as e:
+                        logger.error(f"数据库写入失败: {str(e)}")
+                        return jsonify({'success': False, 'message': f'数据库写入失败: {str(e)}'}), 500
+
+                response_data = {'success': True, 'event_id': event_id, 'image_path': image_path}
+                logger.info(f"返回响应: {response_data}")
+                return jsonify(response_data)
+            else:
+                logger.info("请求不是JSON格式，尝试表单上传")
+                # 兼容原有表单上传方式
+                from werkzeug.utils import secure_filename
+                # 1. 获取表单数据
+                username = request.form.get('username')
+                ip = request.form.get('ip')
+                extra = request.form.get('extra', '')
+                file = request.files.get('image')
+
+                if not file or not username:
+                    return jsonify({'success': False, 'message': '缺少图片或用户名'}), 400
+
+                # 2. 保存图片到本地
+                filename = secure_filename(f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}")
+                save_dir = os.path.join(os.getcwd(), 'alerts')  # 确保和你原有图片目录一致
+                os.makedirs(save_dir, exist_ok=True)
+                save_path = os.path.join(save_dir, filename)
+                file.save(save_path)
+                rel_path = os.path.relpath(save_path, os.getcwd())  # 存相对路径
+
+                # 3. 写入数据库
+                event_id = None
+                if self.alert_database:
+                    try:
+                        from models.alert.alert_event import AlertEvent, AlertLevel
+                    except ImportError:
+                        return jsonify({'success': False, 'message': '无法导入AlertEvent'}), 500
+                    event = AlertEvent(
+                        id=None,  # MySQL自增
+                        rule_id='stranger_login',
+                        level=AlertLevel.ALERT,
+                        danger_level='medium',
+                        source_type='login',
+                        timestamp=datetime.now().timestamp(),
+                        message=f"检测到陌生人登录：{username}，IP：{ip}",
+                        details={'ip': ip, 'extra': extra},
+                        frame_idx=0,
+                        acknowledged=False,
+                        related_events=[]
+                    )
+                    event_id = self.alert_database.save_alert_event(event, image_paths={'frame': rel_path})
+
+                return jsonify({'success': True, 'event_id': event_id, 'image_path': rel_path})
+
 
         @self.app.route('/ai_report')
         def ai_report_page():
