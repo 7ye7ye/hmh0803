@@ -1118,11 +1118,15 @@ class AllInOneSystem:
                         }
                         
                         with self.alert_lock:
-                            self.all_alerts.append(alert_info)
-                            self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
-                            self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
-                            self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
-                            # recent_alerts只保留最新10条
+                            # 判断最近一条告警内容是否一致，若一致则不添加
+                            if not (self.all_alerts and
+                                    self.all_alerts[-1]['type'] == alert_info['type'] and
+                                    self.all_alerts[-1]['desc'] == alert_info['desc'] and
+                                    self.all_alerts[-1]['time'] == alert_info['time']):
+                                self.all_alerts.append(alert_info)
+                                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
+                                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
+                                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
                             self.recent_alerts.append(alert_info)
                         
                         # 追加行为信息
@@ -1529,11 +1533,11 @@ class AllInOneSystem:
     def add_audio_alert(self, labels, scores, audio_db_stats=None):
         """供音频监控模块调用，推送声学异常告警，支持一人/多人喧哗"""
         now = time.time()
-        logger.info(f"收到音频告警: labels={labels}, scores={scores}, audio_db_stats={audio_db_stats}")
+        # logger.info(f"收到音频告警: labels={labels}, scores={scores}, audio_db_stats={audio_db_stats}")
 
         # 1. 无论labels是否为空，都推送音频事件到队列
         self.recent_audio_events.append((labels, scores, now, audio_db_stats))
-        logger.info(f"音频事件已添加到队列，当前队列长度: {len(self.recent_audio_events)}")
+        # logger.info(f"音频事件已添加到队列，当前队列长度: {len(self.recent_audio_events)}")
 
         # 2. 只有labels非空且无recent_behavior时才生成Classroom Noise告警
         recent_behavior = False
@@ -1588,10 +1592,15 @@ class AllInOneSystem:
                 'volume_threshold': volume_threshold
             }
             with self.alert_lock:
-                self.all_alerts.append(alert_info)
-                self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
-                self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
-                self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
+                # 判断最近一条告警内容是否一致，若一致则不添加
+                if not (self.all_alerts and
+                        self.all_alerts[-1]['type'] == alert_info['type'] and
+                        self.all_alerts[-1]['desc'] == alert_info['desc'] and
+                        self.all_alerts[-1]['time'] == alert_info['time']):
+                    self.all_alerts.append(alert_info)
+                    self.alert_handling_stats['total_alerts'] = len(self.all_alerts)
+                    self.alert_handling_stats['handled_alerts'] = sum(1 for a in self.all_alerts if a.get('handled', False))
+                    self.alert_handling_stats['unhandled_alerts'] = self.alert_handling_stats['total_alerts'] - self.alert_handling_stats['handled_alerts']
                 self.recent_alerts.append(alert_info)
         # 新增：统计声学异常（不再生成"声学异常"告警）
         if hasattr(self, 'danger_recognizer') and hasattr(self.danger_recognizer, 'behavior_stats'):

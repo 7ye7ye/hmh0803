@@ -67,11 +67,11 @@ class DangerRecognizer:
             'dwell_time_threshold_s': 1.0,      # 停留时间阈值（秒）
             'fps': 30,                          # 帧率，用于计算时间
             # 新增：打架检测配置（大幅提升灵敏度）
-            'fighting_distance_threshold': 100,   # 放宽距离
-            'fighting_motion_threshold': 3.0,    # 降低运动强度要求
-            'fighting_duration_frames': 3,       # 降低持续帧数
-            'fighting_overlap_threshold': 0.02,  # 放宽重叠面积
-            'fighting_confidence_threshold': 0.38, # 降低置信度
+            'fighting_distance_threshold': 100,   # 距离阈值再略收紧，原110
+            'fighting_motion_threshold': 2.8,    # 运动强度阈值略降，原3.0
+            'fighting_duration_frames': 4,       # 持续帧数再略提升，原3
+            'fighting_overlap_threshold': 0.02,  # 保持
+            'fighting_confidence_threshold': 0.50, # 置信度门槛再略提升，原0.33
             'danger_zone_approach_distance': 50,  # 新增：接近危险区域距离阈值
         }
         
@@ -579,125 +579,128 @@ class DangerRecognizer:
         
         # 摔倒检测（不受冷却时间限制）
         fall_alerts = []
-        if len(self.history) >= 10:  # 需要更多历史记录来判断摔倒事件
-            # 新增：检查是否有人员存在，避免摄像设备运动被误判
-            has_person = False
-            if object_detections:
-                persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
-                has_person = len(persons) > 0
-            # 只有在检测到人员时才进行摔倒检测
-            if has_person:
-                # 新增：预过滤条件，确保有足够的运动强度
-                recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
-                avg_magnitude = np.mean(recent_magnitudes)
-                
-                # 如果平均运动幅度太小，直接跳过摔倒检测
-                if avg_magnitude < 2.0:  # 降低最小运动幅度要求
+        if len(self.history) < 10:  # 需要更多历史记录来判断摔倒事件
+            logger.info(f"[摔倒调试] 历史帧数不足，当前history长度: {len(self.history)}")
+            return []
+        # 新增：检查是否有人员存在，避免摄像设备运动被误判
+        has_person = False
+        if object_detections:
+            persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
+            has_person = len(persons) > 0
+        if not has_person:
+            logger.info("[摔倒调试] 当前帧未检测到person，跳过摔倒检测")
+        # 只有在检测到人员时才进行摔倒检测
+        if has_person:
+            # 新增：预过滤条件，确保有足够的运动强度
+            recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
+            avg_magnitude = np.mean(recent_magnitudes)
+            # 如果平均运动幅度太小，直接跳过摔倒检测
+            if avg_magnitude < 0.5:  # 最小运动幅度要求降低，原0.7
+                logger.info(f"[摔倒调试] 平均运动幅度过小，avg_magnitude={avg_magnitude:.2f}，跳过摔倒检测")
+                pass
+            else:
+                recent_vertical_motions = [h['vertical_motion'] for h in self.history[-8:]]
+                max_vertical_motion = np.max(recent_vertical_motions)
+                # 新增：检查是否有明显的垂直向下运动
+                downward_motion_count = sum(1 for v in recent_vertical_motions if v > 2)  # 向下运动阈值降低，原3
+                upward_motion_count = sum(1 for v in recent_vertical_motions if v < -3)  # 向上运动阈值降低，原-4
+                if upward_motion_count >= 2:
+                    logger.info(f"[摔倒调试] 检测到多帧明显向上运动，upward_motion_count={upward_motion_count}，跳过摔倒检测")
+                    pass
+                elif downward_motion_count < 1:  # 帧数要求降低，原2
+                    logger.info(f"[摔倒调试] 向下运动帧数不足，downward_motion_count={downward_motion_count}，跳过摔倒检测")
                     pass
                 else:
-                    recent_vertical_motions = [h['vertical_motion'] for h in self.history[-8:]]
-                    max_vertical_motion = np.max(recent_vertical_motions)
-                    
-                    # 新增：检查是否有明显的垂直向下运动
-                    downward_motion_count = sum(1 for v in recent_vertical_motions if v > 3)  # 降低向下运动阈值
-                    upward_motion_count = sum(1 for v in recent_vertical_motions if v < -4)  # 统计向上（负值）
-                    if upward_motion_count >= 2:
-                        # 如果有多帧明显向上运动，直接跳过摔倒检测
-                        pass
-                    elif downward_motion_count < 2:  # 降低帧数要求
-                        pass  # 跳过摔倒检测
+                    # 新增：统计水平方向运动
+                    recent_horizontal_motions = []
+                    if isinstance(features, dict) and 'motion_vectors' in features:
+                        for v in features['motion_vectors']:
+                            if len(v) >= 3:
+                                recent_horizontal_motions.append(v[2])  # fx
+                    elif features:
+                        for f in features:
+                            if hasattr(f, 'data') and len(f.data) >= 1:
+                                recent_horizontal_motions.append(f.data[0])  # dx
+                    if recent_horizontal_motions:
+                        max_horizontal_motion = np.max(np.abs(recent_horizontal_motions))
                     else:
-                        # 新增：统计水平方向运动
-                        recent_horizontal_motions = []
-                        if isinstance(features, dict) and 'motion_vectors' in features:
-                            for v in features['motion_vectors']:
-                                if len(v) >= 3:
-                                    recent_horizontal_motions.append(v[2])  # fx
-                        elif features:
-                            for f in features:
-                                if hasattr(f, 'data') and len(f.data) >= 1:
-                                    recent_horizontal_motions.append(f.data[0])  # dx
-                        if recent_horizontal_motions:
-                            max_horizontal_motion = np.max(np.abs(recent_horizontal_motions))
-                        else:
-                            max_horizontal_motion = 0
-                        recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
-                        recent_avg = np.mean(recent_magnitudes[-3:])
-                        earlier_avg = np.mean(recent_magnitudes[:-3]) if len(recent_magnitudes) > 3 else 0
-                        current_features = self.history[-1]['feature_count']
-                        prev_features = self.history[-2]['feature_count'] if len(self.history) > 1 else 0
+                        max_horizontal_motion = 0
+                    recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
+                    recent_avg = np.mean(recent_magnitudes[-3:])
+                    earlier_avg = np.mean(recent_magnitudes[:-3]) if len(recent_magnitudes) > 3 else 0
+                    current_features = self.history[-1]['feature_count']
+                    prev_features = self.history[-2]['feature_count'] if len(self.history) > 1 else 0
 
-                        # 新增：检测摄像头移动（避免误判）
-                        camera_motion_detected = False
-                        if len(self.history) >= 5:
-                            # 检查最近几帧的运动模式
-                            recent_motion_areas = [h['motion_area'] for h in self.history[-5:]]
-                            avg_motion_area = np.mean(recent_motion_areas)
-                            
-                            # 如果运动面积很大且持续，可能是摄像头移动
-                            if avg_motion_area > 0.4:  # 40%以上的画面都在运动
-                                camera_motion_detected = True
-                            
-                            # 检查运动方向的一致性（摄像头移动通常有方向性）
-                            if isinstance(features, dict) and 'motion_vectors' in features:
-                                motion_vectors = features['motion_vectors']
-                                if len(motion_vectors) > 10:
-                                    # 计算运动向量的方向一致性
-                                    directions = []
-                                    for v in motion_vectors:
-                                        if len(v) >= 4:
-                                            dx, dy = v[2], v[3]
-                                            if abs(dx) > 0.1 or abs(dy) > 0.1:
-                                                directions.append((dx, dy))
-                            
-                                    if len(directions) > 5:
-                                        # 计算方向的一致性
-                                        avg_dx = np.mean([d[0] for d in directions])
-                                        avg_dy = np.mean([d[1] for d in directions])
-                                        direction_consistency = np.sqrt(avg_dx**2 + avg_dy**2)
-                                        
-                                        # 如果方向一致性很高，可能是摄像头移动
-                                        if direction_consistency > 3.0:
-                                            camera_motion_detected = True
-
-                        confidence = 0.0
-                        condition_details = []
+                    # 新增：检测摄像头移动（避免误判）
+                    camera_motion_detected = False
+                    if len(self.history) >= 5:
+                        # 检查最近几帧的运动模式
+                        recent_motion_areas = [h['motion_area'] for h in self.history[-5:]]
+                        avg_motion_area = np.mean(recent_motion_areas)
                         
-                        # 只有在没有检测到摄像头移动时才进行摔倒检测
-                        if not camera_motion_detected:
-                            # 条件1：垂直向下运动大 或 水平运动特别大（提高水平阈值）
-                            if max_vertical_motion > 8 or max_horizontal_motion > 15:  # 水平阈值从8提高到15
-                                confidence += 0.4
-                                if max_vertical_motion > 8:
-                                    condition_details.append("垂直向下运动大")
-                                if max_horizontal_motion > 15:
-                                    condition_details.append("水平运动大（横向倒地）")
-                            # 条件2：运动后静止（保持原有或更严格）
-                            if earlier_avg > 5 and recent_avg < 1.5:
-                                confidence += 0.4
-                                condition_details.append("运动后静止")
-                            # 条件3：特征点突增（提高权重和阈值）
-                            if prev_features > 0 and current_features > prev_features * 1.5 and current_features > 5:  # 从1.2/3提高到1.5/5
-                                confidence += 0.3
-                                condition_details.append("特征点突增")
-                            # 条件4：垂直运动持续（提高阈值）
-                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 5)  # 从3提高到5
-                            horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)  # 从3提高到5
-                            if vertical_motion_count >= 3 or horizontal_motion_count >= 3:  # 从2提高到3
-                                confidence += 0.3
-                                condition_details.append("运动持续")
-                            # 新增条件5：要求更明显的运动幅度
-                            if max_vertical_motion > 12 or max_horizontal_motion > 12:  # 新增高幅度运动条件
-                                confidence += 0.2
-                                condition_details.append("高幅度运动")
+                        # 如果运动面积很大且持续，可能是摄像头移动
+                        if avg_motion_area > 0.35:  # 40%以上的画面都在运动
+                            camera_motion_detected = True
+                        
+                        # 检查运动方向的一致性（摄像头移动通常有方向性）
+                        if isinstance(features, dict) and 'motion_vectors' in features:
+                            motion_vectors = features['motion_vectors']
+                            if len(motion_vectors) > 10:
+                                # 计算运动向量的方向一致性
+                                directions = []
+                                for v in motion_vectors:
+                                    if len(v) >= 4:
+                                        dx, dy = v[2], v[3]
+                                        if abs(dx) > 0.1 or abs(dy) > 0.1:
+                                            directions.append((dx, dy))
+                        
+                                if len(directions) > 5:
+                                    # 计算方向的一致性
+                                    avg_dx = np.mean([d[0] for d in directions])
+                                    avg_dy = np.mean([d[1] for d in directions])
+                                    direction_consistency = np.sqrt(avg_dx**2 + avg_dy**2)
+                                    
+                                    # 如果方向一致性很高，可能是摄像头移动
+                                    if direction_consistency > 2.0:
+                                        camera_motion_detected = True
+
+                    confidence = 0.0
+                    condition_details = []
+                    # 全局初始化motion计数变量，防止未定义
+                    vertical_motion_count = 0
+                    horizontal_motion_count = 0
+                    
+                    # 只有在没有检测到摄像头移动时才进行摔倒检测
+                    if not camera_motion_detected:
+                        # 条件1：仅检测垂直向下运动大
+                        if max_vertical_motion > 12:
+                            confidence += 0.4
+                            condition_details.append("垂直向下运动大")
+                        # 条件2：运动后静止
+                        if earlier_avg > 5 and recent_avg < 1.5:
+                            confidence += 0.4
+                            condition_details.append("运动后静止")
+                        # 条件3：特征点突增
+                        if prev_features > 0 and current_features > prev_features * 1.3 and current_features > 5:
+                            confidence += 0.3
+                            condition_details.append("特征点突增")
+                        # 条件4：垂直运动持续
+                        vertical_motion_count = 0
+                        if 'recent_vertical_motions' in locals():
+                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 7)
+                        if vertical_motion_count >= 3:
+                            confidence += 0.3
+                            condition_details.append("运动持续")
+                        # 新增条件5：要求更明显的垂直运动幅度
+                        if max_vertical_motion > 15:
+                            confidence += 0.2
+                            condition_details.append("高幅度垂直运动")
                         else:
-                            # 检测到摄像头移动，降低置信度
                             confidence = 0.0
                             condition_details.append("检测到摄像头移动，忽略摔倒检测")
-
-                        fall_cooldown_frames = 20  # 从10提高到20帧
+                        fall_cooldown_frames = 15
                         cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
-                        if (confidence >= 0.8 and cooldown_ok):  # 从0.6提高到0.8
+                        if (confidence >= 0.7 and cooldown_ok):
                             print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
                             print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
                             # ========== 新增：补充摔倒检测的位置信息和描述 ==========
@@ -747,6 +750,21 @@ class DangerRecognizer:
                             self.last_fall_frame = self.current_frame
                             # 增加行为统计
                             self.behavior_stats['fall_count'] += 1
+                        # 在摔倒检测置信度判据部分插入详细调试日志
+                        if not (confidence >= 0.7 and cooldown_ok):
+                            logger.info(
+                                f"[摔倒调试] 未触发摔倒告警: "
+                                f"confidence={confidence:.2f}, "
+                                f"max_vertical_motion={max_vertical_motion:.2f}, "
+                                f"earlier_avg={earlier_avg:.2f}, "
+                                f"recent_avg={recent_avg:.2f}, "
+                                f"vertical_motion_count={vertical_motion_count}, "
+                                f"prev_features={prev_features}, "
+                                f"current_features={current_features}, "
+                                f"camera_motion_detected={camera_motion_detected}, "
+                                f"cooldown_ok={cooldown_ok}, "
+                                f"判据={condition_details}"
+                            )
         
         # 如果在冷却时间内，只返回摔倒检测结果
         if in_cooldown:
@@ -914,8 +932,12 @@ class DangerRecognizer:
                             if prev_features > 0 and current_features > prev_features * 1.5 and current_features > 5:
                                 confidence += 0.2
                                 condition_details.append("特征点突增")
-                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 5)
-                            horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)
+                            vertical_motion_count = 0
+                            horizontal_motion_count = 0
+                            if 'recent_vertical_motions' in locals():
+                                vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 3)
+                            if 'recent_horizontal_motions' in locals():
+                                horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)
                             if vertical_motion_count >= 3 or horizontal_motion_count >= 3:
                                 confidence += 0.2
                                 condition_details.append("运动持续")
@@ -1060,10 +1082,12 @@ class DangerRecognizer:
         persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
         
         if len(persons) < 2:
+            logger.info(f"[打架调试] 当前帧检测到person数量不足2，无法进行打架检测，实际数量: {len(persons)}")
             return alerts  # 至少需要2个人才能打架
         
         # 检查冷却时间
         if self.current_frame - self.last_fighting_frame <= 15:  # 原45帧，缩短冷却
+            logger.info(f"[打架调试] 冷却时间未到，current_frame={self.current_frame}, last_fighting_frame={self.last_fighting_frame}")
             return alerts
         
         # 分析运动特征
@@ -1123,43 +1147,32 @@ class DangerRecognizer:
         condition_details = []
         
         for pair in person_pairs:
-            # 新增：必须有重叠面积>60 或 距离<80px，否则直接跳过（更宽松）
-            if pair['overlap_area'] < 60 and pair['pixel_distance'] > 80:
-                continue
-            # 必须有剧烈运动
-            motion_threshold = self.config['fighting_motion_threshold']
-            if pair['motion_intensity'] <= motion_threshold:
-                continue
-            # 生成配对键（用于跟踪持续性）
             person1_id = pair['person1'].get('person_id', 'unknown')
             person2_id = pair['person2'].get('person_id', 'unknown')
             pair_key = f"{min(person1_id, person2_id)}_{max(person1_id, person2_id)}"
-            
-            # 检查是否满足打架条件
+            # 新增：强制插入详细日志
             pair_confidence = 0.0
             pair_conditions = []
-            
             # 条件1：实际距离很近（考虑人物大小和位置）
             distance_threshold = self.config['fighting_distance_threshold']
             if pair['pixel_distance'] < distance_threshold:
-                # 根据人物大小调整距离权重
                 avg_size = (pair['person1_size'] + pair['person2_size']) / 2
-                size_factor = min(avg_size / 10000, 2.0)  # 人物越大，距离权重越高
+                size_factor = min(avg_size / 10000, 2.0)
                 adjusted_distance_score = max(0, 1 - pair['pixel_distance'] / (distance_threshold * size_factor))
-                pair_confidence += adjusted_distance_score * 0.3
+                pair_confidence += adjusted_distance_score * 0.25  # 距离加分略提升，原0.2
                 pair_conditions.append(f"距离很近({pair['pixel_distance']:.1f}px)")
             
             # 条件2：边界框有重叠（人员接触）
             if pair['overlap_area'] > 0:
-                overlap_score = min(pair['overlap_area'] / 1000, 1.0)  # 重叠面积越大，分数越高
-                pair_confidence += overlap_score * 0.4
+                overlap_score = min(pair['overlap_area'] / 1000, 1.0)
+                pair_confidence += overlap_score * 0.25  # 重叠加分略提升，原0.2
                 pair_conditions.append(f"人员接触(重叠{pair['overlap_area']:.1f})")
             
             # 条件3：剧烈运动（运动强度大于阈值）
             motion_threshold = self.config['fighting_motion_threshold']
             if pair['motion_intensity'] > motion_threshold:
                 motion_score = min((pair['motion_intensity'] - motion_threshold) / motion_threshold, 1.0)
-                pair_confidence += motion_score * 0.3
+                pair_confidence += motion_score * 0.25  # 运动加分略提升，原0.2
                 pair_conditions.append(f"剧烈运动({pair['motion_intensity']:.1f})")
             
             # 条件4：多个人员同时运动（轻微排除摔倒场景）
@@ -1177,27 +1190,24 @@ class DangerRecognizer:
                     if vertical_motions and horizontal_motions:
                         avg_vertical = np.mean(vertical_motions)
                         avg_horizontal = np.mean(horizontal_motions)
-                        # 提高阈值，减少误判
-                        if abs(avg_vertical) > 6 or abs(avg_horizontal) > 6:  # 从5提高到6
+                        if abs(avg_vertical) > 6 or abs(avg_horizontal) > 6:
                             is_fall_scenario = True
-                
                 # 只有在不是摔倒场景时才加分
                 if not is_fall_scenario:
-                    pair_confidence += 0.2
+                    pair_confidence += 0.08  # 多人加分略提升，原0.05
                     pair_conditions.append("多人同时运动")
                 else:
                     pair_conditions.append("检测到可能的摔倒场景，显著降低打架置信度")
-                    pair_confidence -= 0.2  # 原-0.05，扣分更重
-            
+                    pair_confidence -= 0.2
             # 新增条件5：检查人物大小是否合理（更宽松，原2000→800）
-            min_reasonable_size = 800
+            min_reasonable_size = 1000  # 合理大小阈值略降低，原1200
             if person1_size > min_reasonable_size and person2_size > min_reasonable_size:
-                pair_confidence += 0.1
+                pair_confidence += 0.03  # 加分略提升，原0.02
                 pair_conditions.append("人物大小合理")
             
             # 新增条件6：检查运动模式（避免静态或缓慢移动被误判）
-            if pair['motion_intensity'] > motion_threshold * 2.0:  # 从1.5提高到2.0，要求更高的运动强度
-                pair_confidence += 0.2
+            if pair['motion_intensity'] > motion_threshold * 2.0:  # 高强度运动阈值略降低，原2.5
+                pair_confidence += 0.15  # 加分略提升，原0.1
                 pair_conditions.append("高强度运动")
             
             # 新增条件7：排除摔倒场景（检查运动特征，更宽松）
@@ -1230,8 +1240,7 @@ class DangerRecognizer:
             
             # 持续性检测
             if pair_key not in self.fighting_history:
-                # 新配对，初始化历史记录
-                if pair_confidence >= self.config['fighting_confidence_threshold'] * 0.7:  # 原0.9，放宽初始阈值
+                if pair_confidence >= self.config['fighting_confidence_threshold'] * 0.7:
                     self.fighting_history[pair_key] = {
                         'start_frame': self.current_frame,
                         'duration': 1,
@@ -1239,8 +1248,21 @@ class DangerRecognizer:
                         'confidence_history': [pair_confidence],
                         'last_update': current_time
                     }
+                else:
+                    logger.info(
+                        f"[打架调试] 未满足打架判据: "
+                        f"person1_id={person1_id}, person2_id={person2_id}, "
+                        f"pixel_distance={pair['pixel_distance']:.2f}, real_distance={pair['real_distance']:.2f}, "
+                        f"overlap_area={pair['overlap_area']:.2f}, motion_intensity={pair['motion_intensity']:.2f}, "
+                        f"pair_confidence={pair_confidence:.2f}, 阈值={self.config['fighting_confidence_threshold']*0.7:.2f}, 判据={pair_conditions}"
+                    )
             else:
                 # 更新现有配对的历史记录
+                logger.info(
+                    f"[打架调试] 持续性检测: person1_id={person1_id}, person2_id={person2_id}, "
+                    f"duration={self.fighting_history[pair_key]['duration']+1}, "
+                    f"recent_confidence={pair_confidence:.2f}, 判据={pair_conditions}"
+                )
                 history = self.fighting_history[pair_key]
                 
                 # 检查时间连续性（允许短暂中断）
