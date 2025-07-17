@@ -51,13 +51,13 @@ class DangerRecognizer:
         """
         # 默认配置
         self.config = {
-                    'feature_count_threshold': 50,      # 提高特征点数量阈值，减少误报
-        'feature_change_ratio': 1.5,        # 提高特征变化率阈值，减少误报
-        'motion_magnitude_threshold': 5,    # 提高运动幅度阈值，减少误报
-        'motion_area_threshold': 0.25,      # 25%画面有大幅运动才告警
-        'fall_motion_threshold': 5,         # 降低运动强度阈值
-            'alert_cooldown': 15,               # 增加告警冷却时间，减少频繁告警
-            'history_length': 30,
+            'feature_count_threshold': 30,      # 降低特征点数量阈值
+            'feature_change_ratio': 1.2,        # 降低特征变化率阈值
+            'motion_magnitude_threshold': 2,    # 降低运动幅度阈值
+            'motion_area_threshold': 0.1,      # 降低大面积运动阈值
+            'fall_motion_threshold': 2,         # 降低摔倒运动强度阈值
+            'alert_cooldown': 5,               # 缩短告警冷却时间
+            'history_length': 20,
             'save_alerts': True,
             'alert_dir': 'alerts',
             'min_confidence': 0.6,              # 置信度提高到0.6

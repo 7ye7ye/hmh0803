@@ -1450,7 +1450,6 @@ class AllInOneSystem:
                         break
         if labels and len(labels) > 0 and not recent_behavior:
             alert_type = 'Classroom Noise'
-            desc = f"检测到教室喧哗"
             # 统计最近10秒内所有音频事件的分贝
             db_list = []
             now_ts = now
@@ -1462,11 +1461,15 @@ class AllInOneSystem:
                     break
             # 计算最大、最小、平均分贝
             max_db = max((d.get('max_db', 0) for d in db_list), default=audio_db_stats.get('max_db', 0) if audio_db_stats else 0)
-            min_db = min((d.get('min_db', 0) for d in db_list), default=audio_db_stats.get('min_db', 0) if audio_db_stats else 0)
+            min_db = 0  # 强制最小分贝为0
             avg_db = sum((d.get('avg_db', 0) for d in db_list)) / len(db_list) if db_list else (audio_db_stats.get('avg_db', 0) if audio_db_stats else 0)
-            merged_db_stats = {'max_db': round(max_db, 1), 'min_db': round(min_db, 1), 'avg_db': round(avg_db, 1)}
-            # 只在desc中追加分贝统计描述
-            desc += f"；声学检测结果：最大分贝{merged_db_stats['max_db']}，最小分贝{merged_db_stats['min_db']}，平均分贝{merged_db_stats['avg_db']}"
+            merged_db_stats = {'max_db': round(max_db, 1), 'min_db': 0, 'avg_db': round(avg_db, 1)}
+            # 构建desc
+            volume_threshold = 60
+            if max_db > volume_threshold:
+                desc = f"检测到教室喧哗；检测到最高音量为{round(max_db,1)}分贝 (超过音量阈值{volume_threshold}分贝)，最小分贝0，平均分贝{round(avg_db,1)}"
+            else:
+                desc = f"检测到教室喧哗；声学检测结果正常，最大分贝{round(max_db,1)}，最小分贝0，平均分贝{round(avg_db,1)}"
             alert_info = {
                 'id': str(uuid.uuid4()),
                 'type': alert_type,
@@ -1479,7 +1482,9 @@ class AllInOneSystem:
                 'person_id': '',
                 'person_class': '',
                 'audio_labels': labels,
-                'audio_db_stats': merged_db_stats
+                'audio_db_stats': merged_db_stats,
+                'volume_exceeded': max_db > volume_threshold,
+                'volume_threshold': volume_threshold
             }
             with self.alert_lock:
                 self.all_alerts.append(alert_info)
