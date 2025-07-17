@@ -328,9 +328,9 @@ class FacialRecognitionService:
             logger.error(f"视频流发生错误: {e}")
         finally:
             # 确保在流结束时停止分析
-            logger.info("正在清理视频流资源...")
-            await self.stop_analysis()
-            logger.info("视频流资源清理完成")
+            logger.info("一个视频流客户端断开连接，但后台分析服务将继续运行。")
+            #await self.stop_analysis()
+
 
     async def get_latest_face_info(self):
         async with self.lock:

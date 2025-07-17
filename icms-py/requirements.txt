@@ -1,9 +1,14 @@
+# FastAPI 框架
 fastapi[all]
+
+# 核心人脸识别与分析库
 deepface==0.0.90
 tensorflow==2.16.1
-numpy==1.26.4
 opencv-contrib-python==4.8.0.76
-mediapipe==0.10.13  # 使用镜像源中存在的版本
+mediapipe==0.10.13
+numpy==1.26.4
+
+# 辅助工具
 imutils
 python-dotenv
-fastapi_cdn_host
+fastapi-cdn-host
