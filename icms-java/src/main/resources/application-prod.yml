@@ -5,7 +5,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://121.36.44.77:3306/icms
-    username: root
+    username: icms
     password: 123456
 
 server:
