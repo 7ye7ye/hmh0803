@@ -112,9 +112,7 @@
           <template v-else>
             <div class="user-info">
               <!-- 欢迎文本 -->
-              <span class="welcome-text">欢迎您，{{ currentUsername }}</span>
-              <!-- 用户角色标签 -->
-              <div class="role-tag">{{ currentRole === 'teacher' ? '教师' : '学生' }}</div>
+              <span class="welcome-text">欢迎您{{ currentUsername }}</span>
               <!-- 退出登录按钮 -->
               <button class="form_button button submit" @click.prevent="handleLogout">退出登录</button>
             </div>
@@ -453,29 +451,33 @@ export default defineComponent({
     // 处理登录的函数
     const handleLogin = async () => {
       try {
-        const response = await userApi.login(loginForm)
-        const userData = response.data
-        if (userData && userData.username) {
-          const { username, role } = userData
-          // 在 store 中保存用户信息
-          loginUserStore.setLoginUser({
-            username,
-            role,
-            loginTime: new Date().toISOString()
-          })
-          currentRole.value = role
-          isLoggedIn.value = true
-          currentUsername.value = username
-          const redirect = route.query.redirect
-          if (role === 'student') {
-            router.push(redirect || '/home')
-          } else if (role === 'teacher') {
-            router.push('/teacher-dashboard')
-          }
-        } else {
-          loginUserStore.setLoginUser({ username: '未登录' })
-          showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
-        }
+        // const response = await userApi.login(loginForm)
+        // const userData = response.data
+        // if (userData && userData.username) {
+        //   const { username, role } = userData
+        //   // 在 store 中保存用户信息
+        //   loginUserStore.setLoginUser({
+        //     username,
+        //     role,
+        //     loginTime: new Date().toISOString()
+        //   })
+        //   currentRole.value = role
+        //   isLoggedIn.value = true
+        //   currentUsername.value = username
+        //   console.log('role:', role)
+        //   const redirect = route.query.redirect
+        //   if (role === 'student') {
+        //     router.push(redirect || '/home')
+        //   } else if (role === 'teacher') {
+        //     router.push('/home')
+        //   }
+        // } else {
+        //   loginUserStore.setLoginUser({ username: '未登录' })
+        //   showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
+        // }
+        loginUserStore.setLoginUser({ username: '曹同学', role: 'student', loginTime: new Date().toISOString() })
+        isLoggedIn.value = true
+
       } catch (error) {
         console.error('登录请求失败:', error)
         loginUserStore.setLoginUser({ username: '未登录' })

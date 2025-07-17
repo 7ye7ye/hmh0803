@@ -76,33 +76,12 @@ export const useLoginUserStore = defineStore('loginUser', () => {
     }
   }
 
-  // 检查登录状态
-  const checkLoginStatus = async () => {
-    try {
-      const response = await userApi.getCurrentUser()
-      if (response.data && response.data.username) {
-        setLoginUser({
-          username: response.data.username,
-          role: response.data.role,
-          loginTime: loginUser.value.loginTime || new Date().toISOString()
-        })
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error('检查登录状态失败:', error)
-      setLoginUser({ username: '未登录' })
-      return false
-    }
-  }
-
   return {
     loginUser,
     currentMenu,
     setCurrentMenu,
     setLoginUser,
     fetchLoginUser,
-    checkLoginStatus,
     logout
   }
 }, {
