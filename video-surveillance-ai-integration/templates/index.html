@@ -119,12 +119,12 @@
         }
         /* 危险等级颜色 */
         .alert-item.danger-low {
-            border-left-color: #ffd600; /* 黄色 */
-            background-color: #fffde7;
-        }
-        .alert-item.danger-medium {
             border-left-color: #2196f3; /* 蓝色 */
             background-color: #e3f2fd;
+        }
+        .alert-item.danger-medium {
+            border-left-color: #ffd600; /* 黄色 */
+            background-color: #fffde7;
         }
         .alert-item.danger-high {
             border-left-color: #e74c3c; /* 红色 */
@@ -142,10 +142,10 @@
         }
         /* 危险等级文字颜色 */
         .alert-item.danger-low .alert-type {
-            color: #ffd600;
+            color: #2196f3;
         }
         .alert-item.danger-medium .alert-type {
-            color: #2196f3;
+            color: #ffd600;
         }
         .alert-item.danger-high .alert-type {
             color: #e74c3c;
@@ -944,8 +944,8 @@
                                 'high': '高危险'
                             };
                             const levelColor = {
-                                'low': '#ffd600', // 黄色
-                                'medium': '#2196f3', // 蓝色
+                                'low': '#2196f3', // 蓝色
+                                'medium': '#ffd600', // 黄色
                                 'high': '#e74c3c' // 红色
                             };
                             // 若已处理，显示绿色
@@ -972,18 +972,9 @@
                             html += `<div><b>触发对象：</b>ID: ${alert.person_id}</div>`;
                         }
                         // 新增：声学检测结果
-                        if(alert.audio_labels && alert.audio_labels.length > 0){
-                            if(alert.audio_labels.length === 1){
-                                html += `<div><b>声学检测结果：</b>一人喧哗（${alert.audio_labels[0]}）</div>`;
-                            }else{
-                                html += `<div><b>声学检测结果：</b>多人喧哗（${alert.audio_labels.map(l=>l).join('，')}）</div>`;
-                            }
-                        }else{
-                            html += `<div><b>声学检测结果：</b>无声音</div>`;
-                        }
-                        // 新增：分贝统计
-                        if(alert.audio_db_stats){
-                            html += `<div><b>声学检测结果：</b>检测到平均${alert.audio_db_stats.avg_db}分贝的音量，最高音量为${alert.audio_db_stats.max_db}分贝，最低音量为${alert.audio_db_stats.min_db}分贝</div>`;
+                        if(alert.audio_db_stats) {
+                            let dbText = `检测到平均${alert.audio_db_stats.avg_db}分贝的音量，最高音量为${alert.audio_db_stats.max_db}分贝，最低音量为${alert.audio_db_stats.min_db}分贝`;
+                            html += `<div><b>声学检测结果：</b>${dbText}</div>`;
                         }
                         html += `<div><b>状态：</b><span style="color: ${alert.handled ? '#27ae60' : '#e74c3c'};">${alert.handled ? '已处理' : '未处理'}</span></div>`;
                         if (alert.handled && alert.handled_time) {
