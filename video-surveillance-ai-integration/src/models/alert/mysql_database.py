@@ -93,14 +93,13 @@ class MySQLAlertDatabase:
                         except Exception:
                             event_time_str = str(event.timestamp)[:19]
                         self.logger.info(f"插入的时间字符串: {event_time_str}")
-                        # 插入告警事件（不再传id，event_time为DATETIME字符串）
                         sql = """
                             INSERT INTO alert_events 
                             (rule_id, level, danger_level, source_type, event_time, message, details, 
                              frame_idx, acknowledged, related_events)
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """
-                        cursor.execute(sql, (
+                        params = (
                             event.rule_id,
                             event.level.name,
                             event.danger_level,
@@ -111,8 +110,12 @@ class MySQLAlertDatabase:
                             event.frame_idx,
                             event.acknowledged,
                             json.dumps(event.related_events)
-                        ))
+                        )
+                        self.logger.info(f"插入SQL: {sql}")
+                        self.logger.info(f"插入参数: {params}")
+                        cursor.execute(sql, params)
                         new_id = cursor.lastrowid
+                        self.logger.info(f"插入后new_id={new_id}")
                         # 保存相关图像路径
                         if image_paths:
                             for image_type, image_path in image_paths.items():
@@ -122,6 +125,7 @@ class MySQLAlertDatabase:
                                         file_size = os.path.getsize(image_path)
                                 except:
                                     pass
+                                self.logger.info(f"插入图片: event_id={new_id}, image_type={image_type}, image_path={image_path}, file_size={file_size}")
                                 cursor.execute("""
                                     INSERT INTO alert_images (event_id, image_type, image_path, file_size)
                                     VALUES (%s, %s, %s, %s)
@@ -129,7 +133,7 @@ class MySQLAlertDatabase:
                         self.logger.debug(f"告警事件已保存到MySQL数据库: {event.message}, 新id: {new_id}")
                         return new_id
         except Exception as e:
-            self.logger.error(f"保存告警事件到MySQL失败: {str(e)}")
+            self.logger.error(f"保存告警事件到MySQL失败: {str(e)}", exc_info=True)
             return None
     
     def get_alert_events(self, 
