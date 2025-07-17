@@ -1,3 +1,5 @@
+import os
+os.environ['TF_USE_LEGACY_KERAS'] = '0'
 import cv2
 import asyncio
 from fastapi import FastAPI

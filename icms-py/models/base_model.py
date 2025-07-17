@@ -1,3 +1,7 @@
+import os
+os.environ['TF_USE_LEGACY_KERAS'] = '0'
+import tensorflow as tf                  # 新增！
+from tensorflow import keras
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import List, Dict, Any
