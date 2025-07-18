@@ -67,11 +67,11 @@ class DangerRecognizer:
             'dwell_time_threshold_s': 1.0,      # 停留时间阈值（秒）
             'fps': 30,                          # 帧率，用于计算时间
             # 新增：打架检测配置（降低灵敏度）
-            'fighting_distance_threshold': 140,   # 再上调距离阈值，进一步降低灵敏度
-            'fighting_motion_threshold': 7.0,    # 再上调运动强度阈值，进一步降低灵敏度
-            'fighting_duration_frames': 6,       # 再上调持续帧数，进一步降低灵敏度
+            'fighting_distance_threshold': 130,   # 下调距离阈值，略微提升灵敏度
+            'fighting_motion_threshold': 6.0,    # 下调运动强度阈值，略微提升灵敏度
+            'fighting_duration_frames': 5,       # 下调持续帧数，略微提升灵敏度
             'fighting_overlap_threshold': 0.02,  # 保持
-            'fighting_confidence_threshold': 0.6, # 再上调置信度门槛，进一步降低灵敏度
+            'fighting_confidence_threshold': 0.55, # 下调置信度门槛，略微提升灵敏度
             'danger_zone_approach_distance': 50,  # 新增：接近危险区域距离阈值
         }
         
