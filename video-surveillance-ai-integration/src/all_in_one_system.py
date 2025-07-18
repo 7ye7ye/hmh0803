@@ -1457,7 +1457,7 @@ class AllInOneSystem:
         for k, v in [
             ("Sudden Motion", behavior_stats.get('sudden_motion_count', 0)),
             ("Large Area Motion", behavior_stats.get('large_area_motion_count', 0)),
-            ("Fall Detection", behavior_stats.get('fall_count', 0)),
+            ("Fall/Move Detection", behavior_stats.get('fall_count', 0)),
             ("Danger Zone Dwell", behavior_stats.get('danger_zone_dwell_count', 0)),
             ("Fighting Detection", behavior_stats.get('fighting_count', 0)),
             ("Abnormal Audio Event", behavior_stats.get('audio_event_count', 0)),  # 新增
@@ -1484,7 +1484,7 @@ class AllInOneSystem:
         for k, v in [
             ("Sudden Motion", behavior_stats.get('sudden_motion_count', 0)),
             ("Large Area Motion", behavior_stats.get('large_area_motion_count', 0)),
-            ("Fall Detection", behavior_stats.get('fall_count', 0)),
+            ("Fall/Move Detection", behavior_stats.get('fall_count', 0)),
             ("Danger Zone Dwell", behavior_stats.get('danger_zone_dwell_count', 0)),
             ("Fighting Detection", behavior_stats.get('fighting_count', 0)),
             ("Abnormal Audio Event", behavior_stats.get('audio_event_count', 0)),
@@ -1543,7 +1543,7 @@ class AllInOneSystem:
         recent_behavior = False
         with self.alert_lock:
             for alert in list(self.all_alerts)[-10:]:
-                if alert.get('type') in ['Fighting Detection', 'Fall Detection']:
+                if alert.get('type') in ['Fighting Detection', 'Fall/Move Detection']:
                     alert_time = alert.get('time')
                     try:
                         alert_ts = time.mktime(time.strptime(alert_time, '%Y-%m-%d %H:%M:%S'))

@@ -21,7 +21,7 @@ class DangerRecognizer:
     DANGER_TYPES = {
         'sudden_motion': 'Sudden Motion',
         'large_area_motion': 'Large Area Motion',
-        'fall': 'Fall Detection',
+        'fall': 'Fall/Move Detection',
         'abnormal_pattern': 'Abnormal Pattern',
         'intrusion': 'Intrusion Alert',
         'loitering': 'Loitering',
@@ -54,8 +54,8 @@ class DangerRecognizer:
             'feature_count_threshold': 30,      # 降低特征点数量阈值
             'feature_change_ratio': 1.2,        # 降低特征变化率阈值
             'motion_magnitude_threshold': 2,    # 降低运动幅度阈值
-            'motion_area_threshold': 0.1,      # 降低大面积运动阈值
-            'fall_motion_threshold': 2,         # 降低摔倒运动强度阈值
+            'motion_area_threshold': 0.2,      # 降低大面积运动阈值
+            'fall_motion_threshold': 5,         # 再上调摔倒运动强度阈值，进一步降低灵敏度
             'alert_cooldown': 5,               # 缩短告警冷却时间
             'history_length': 20,
             'save_alerts': True,
@@ -66,12 +66,12 @@ class DangerRecognizer:
             'distance_threshold_m': 50,         # 距离区域边界的阈值（像素）
             'dwell_time_threshold_s': 1.0,      # 停留时间阈值（秒）
             'fps': 30,                          # 帧率，用于计算时间
-            # 新增：打架检测配置（大幅提升灵敏度）
-            'fighting_distance_threshold': 100,   # 距离阈值再略收紧，原110
-            'fighting_motion_threshold': 2.8,    # 运动强度阈值略降，原3.0
-            'fighting_duration_frames': 4,       # 持续帧数再略提升，原3
+            # 新增：打架检测配置（降低灵敏度）
+            'fighting_distance_threshold': 140,   # 再上调距离阈值，进一步降低灵敏度
+            'fighting_motion_threshold': 7.0,    # 再上调运动强度阈值，进一步降低灵敏度
+            'fighting_duration_frames': 6,       # 再上调持续帧数，进一步降低灵敏度
             'fighting_overlap_threshold': 0.02,  # 保持
-            'fighting_confidence_threshold': 0.50, # 置信度门槛再略提升，原0.33
+            'fighting_confidence_threshold': 0.6, # 再上调置信度门槛，进一步降低灵敏度
             'danger_zone_approach_distance': 50,  # 新增：接近危险区域距离阈值
         }
         
@@ -606,25 +606,11 @@ class DangerRecognizer:
                 upward_motion_count = sum(1 for v in recent_vertical_motions if v < -3)  # 向上运动阈值降低，原-4
                 if upward_motion_count >= 2:
                     logger.info(f"[摔倒调试] 检测到多帧明显向上运动，upward_motion_count={upward_motion_count}，跳过摔倒检测")
-                    pass
+                    return []  # 只要有多帧明显向上运动，直接跳过本次摔倒检测，避免误判
                 elif downward_motion_count < 1:  # 帧数要求降低，原2
                     logger.info(f"[摔倒调试] 向下运动帧数不足，downward_motion_count={downward_motion_count}，跳过摔倒检测")
                     pass
                 else:
-                    # 新增：统计水平方向运动
-                    recent_horizontal_motions = []
-                    if isinstance(features, dict) and 'motion_vectors' in features:
-                        for v in features['motion_vectors']:
-                            if len(v) >= 3:
-                                recent_horizontal_motions.append(v[2])  # fx
-                    elif features:
-                        for f in features:
-                            if hasattr(f, 'data') and len(f.data) >= 1:
-                                recent_horizontal_motions.append(f.data[0])  # dx
-                    if recent_horizontal_motions:
-                        max_horizontal_motion = np.max(np.abs(recent_horizontal_motions))
-                    else:
-                        max_horizontal_motion = 0
                     recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
                     recent_avg = np.mean(recent_magnitudes[-3:])
                     earlier_avg = np.mean(recent_magnitudes[:-3]) if len(recent_magnitudes) > 3 else 0
@@ -673,7 +659,7 @@ class DangerRecognizer:
                     # 只有在没有检测到摄像头移动时才进行摔倒检测
                     if not camera_motion_detected:
                         # 条件1：仅检测垂直向下运动大
-                        if max_vertical_motion > 12:
+                        if max_vertical_motion > 14:
                             confidence += 0.4
                             condition_details.append("垂直向下运动大")
                         # 条件2：运动后静止
@@ -687,20 +673,21 @@ class DangerRecognizer:
                         # 条件4：垂直运动持续
                         vertical_motion_count = 0
                         if 'recent_vertical_motions' in locals():
-                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 7)
-                        if vertical_motion_count >= 3:
+                            vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 9)
+                        if vertical_motion_count >= 4:
                             confidence += 0.3
                             condition_details.append("运动持续")
                         # 新增条件5：要求更明显的垂直运动幅度
-                        if max_vertical_motion > 15:
+                        if max_vertical_motion > 20:
                             confidence += 0.2
                             condition_details.append("高幅度垂直运动")
                         else:
                             confidence = 0.0
                             condition_details.append("检测到摄像头移动，忽略摔倒检测")
-                        fall_cooldown_frames = 15
+                        # 冷却时间加长，防止频繁播报
+                        fall_cooldown_frames = 90  # 冷却时间提升到90帧（约3秒）
                         cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
-                        if (confidence >= 0.7 and cooldown_ok):
+                        if (confidence >= 0.8 and cooldown_ok):
                             print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
                             print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
                             # ========== 新增：补充摔倒检测的位置信息和描述 ==========
@@ -732,7 +719,7 @@ class DangerRecognizer:
                                         # 兜底分配
                                         person_id = f"temp_{hash(tuple(bbox))}"
                             id_str = f"（ID: {person_id}）" if person_id else ""
-                            desc = f"检测到人员{id_str}在{location['description']}发生摔倒"
+                            desc = f"检测到人员{id_str}在{location['description']}发生摔倒/移动"
                             # ========== End ==========
                             fall_alerts.append({
                                 'type': self.DANGER_TYPES['fall'],
@@ -751,7 +738,7 @@ class DangerRecognizer:
                             # 增加行为统计
                             self.behavior_stats['fall_count'] += 1
                         # 在摔倒检测置信度判据部分插入详细调试日志
-                        if not (confidence >= 0.7 and cooldown_ok):
+                        if not (confidence >= 0.8 and cooldown_ok):
                             logger.info(
                                 f"[摔倒调试] 未触发摔倒告警: "
                                 f"confidence={confidence:.2f}, "
@@ -835,19 +822,6 @@ class DangerRecognizer:
                     elif downward_motion_count < 2:
                         pass
                     else:
-                        recent_horizontal_motions = []
-                        if isinstance(features, dict) and 'motion_vectors' in features:
-                            for v in features['motion_vectors']:
-                                if len(v) >= 3:
-                                    recent_horizontal_motions.append(v[2])
-                        elif features:
-                            for f in features:
-                                if hasattr(f, 'data') and len(f.data) >= 1:
-                                    recent_horizontal_motions.append(f.data[0])
-                        if recent_horizontal_motions:
-                            max_horizontal_motion = np.max(np.abs(recent_horizontal_motions))
-                        else:
-                            max_horizontal_motion = 0
                         recent_magnitudes = [h['avg_magnitude'] for h in self.history[-8:]]
                         recent_avg = np.mean(recent_magnitudes[-3:])
                         earlier_avg = np.mean(recent_magnitudes[:-3]) if len(recent_magnitudes) > 3 else 0
@@ -920,12 +894,9 @@ class DangerRecognizer:
                         confidence = 0.0
                         condition_details = []
                         if not camera_motion_detected:
-                            if max_vertical_motion > 12 or max_horizontal_motion > 25:
+                            if max_vertical_motion > 12:
                                 confidence += 0.3
-                                if max_vertical_motion > 12:
-                                    condition_details.append("垂直向下运动大")
-                                if max_horizontal_motion > 25:
-                                    condition_details.append("水平运动大（横向倒地）")
+                                condition_details.append("垂直向下运动大")
                             if earlier_avg > 8 and recent_avg < 0.5:  # 更严格
                                 confidence += 0.3
                                 condition_details.append("运动后静止(更严格)")
@@ -933,17 +904,11 @@ class DangerRecognizer:
                                 confidence += 0.2
                                 condition_details.append("特征点突增")
                             vertical_motion_count = 0
-                            horizontal_motion_count = 0
                             if 'recent_vertical_motions' in locals():
                                 vertical_motion_count = sum(1 for v in recent_vertical_motions if v > 3)
-                            if 'recent_horizontal_motions' in locals():
-                                horizontal_motion_count = sum(1 for v in recent_horizontal_motions if abs(v) > 5)
-                            if vertical_motion_count >= 3 or horizontal_motion_count >= 3:
+                            if vertical_motion_count >= 3:
                                 confidence += 0.2
                                 condition_details.append("运动持续")
-                            if max_vertical_motion > 18 or max_horizontal_motion > 18:
-                                confidence += 0.1
-                                condition_details.append("高幅度运动")
                             # 新增：高度显著下降判据
                             if object_detections:
                                 persons = [det for det in object_detections if str(det.get('class', '')).lower() == 'person']
@@ -964,7 +929,7 @@ class DangerRecognizer:
                         confidence = min(confidence, 1.0)
                         fall_cooldown_frames = 40  # 冷却时间加长
                         cooldown_ok = self.current_frame - getattr(self, 'last_fall_frame', 0) > fall_cooldown_frames
-                        if (confidence >= 0.7 and cooldown_ok):
+                        if (confidence >= 0.8 and cooldown_ok):
                             print(f"[调试] 摔倒事件检测触发: 置信度={confidence:.2f}, 满足条件: {condition_details}")
                             print(f"[调试] 详细参数: max_vertical_motion={max_vertical_motion:.2f}, earlier_avg={earlier_avg:.2f}, recent_avg={recent_avg:.2f}, vertical_motion_count={vertical_motion_count}")
                             if object_detections:
@@ -993,7 +958,7 @@ class DangerRecognizer:
                                     if person_id is None:
                                         person_id = f"temp_{hash(tuple(bbox))}"
                             id_str = f"（ID: {person_id}）" if person_id else ""
-                            desc = f"检测到人员{id_str}在{location['description']}发生摔倒"
+                            desc = f"检测到人员{id_str}在{location['description']}发生摔倒/移动"
                             # 唯一告警状态机
                             if person_id is not None:
                                 now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
