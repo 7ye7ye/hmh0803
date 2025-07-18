@@ -329,7 +329,7 @@ class FacialRecognitionService:
         finally:
             # 确保在流结束时停止分析
             logger.info("一个视频流客户端断开连接，但后台分析服务将继续运行。")
-            #await self.stop_analysis()
+            await self.stop_analysis()
 
 
     async def get_latest_face_info(self):
@@ -389,7 +389,7 @@ async def video_feed_cors():
         response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
         return response
     except Exception as e:
-        await facial_service.stop_analysis()
+        # await facial_service.stop_analysis()
         raise
 
 @router.get("/get_latest_vector")
@@ -405,7 +405,7 @@ async def get_latest_vector():
         while time.time() - start_time < 10:
             result = await facial_service.get_latest_face_info()
             if result and result.get("vector_str"):
-                await facial_service.stop_analysis()
+                # await facial_service.stop_analysis()
                 logger.info("人脸采集成功")
                 return JSONResponse(content={
                     "status": "success",

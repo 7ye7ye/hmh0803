@@ -499,7 +499,7 @@ export default defineComponent({
         //   loginUserStore.setLoginUser({ username: '未登录' })
         //   showMessage(response.data.message || '登录失败，请检查用户名、密码或人脸信息')
         // }
-        loginUserStore.setLoginUser({ username: '曹同学', role: 'student', loginTime: new Date().toISOString() })
+        loginUserStore.setLoginUser({ username: '老师', role: 'teacher', loginTime: new Date().toISOString() })
         isLoggedIn.value = true
 
       } catch (error) {
